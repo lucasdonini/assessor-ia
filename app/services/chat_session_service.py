@@ -94,7 +94,11 @@ class ChatSessionService:
         """
 
         session = await self._repository.find_by_session_id(session_id, user_id=user_id)
-        if not session or not session.entries:
+        if session is None:
+            # Claim a new empty session, or reject an ID belonging to another user.
+            await self.get_or_create_session(session_id, user_id=user_id)
+            return None
+        if not session.entries:
             return None
 
         if session.summary and (summary := session.summary.strip()):

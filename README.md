@@ -205,3 +205,71 @@ aplicação web estão em [`context.md`](context.md).
 Crie uma branch por alteração, mantenha commits pequenos e abra um pull request
 para `main`. Não inclua arquivos `.env`, logs ou outros artefatos locais no
 versionamento.
+
+
+## Uso com vários usuários (demonstração)
+
+A interface permite criar usuários e selecionar o usuário ativo. Cada usuário tem
+um UUID estável e pode abrir várias conversas. O botão **Nova sessão** troca apenas
+a conversa; transações e histórico continuam associados ao mesmo usuário.
+
+- `POST /api/users`: cria um usuário e retorna `id` e `created_at`.
+- `GET /api/users`: lista os usuários de demonstração.
+- `POST /api/chat/{session_id}`: exige `X-User-ID` e o corpo habitual com `message`.
+- `POST /api/session/{session_id}/finalize`: exige o mesmo cabeçalho.
+
+O cabeçalho é obrigatório e deve conter o UUID de um usuário cadastrado. O servidor
+retorna 422 para identidade ausente ou malformada e 404 para usuário inexistente.
+Sessões têm proprietário imutável: fornecer o ID de uma sessão de outra pessoa não
+permite escrever nela ou recuperar seu resumo. Transações, saldos e buscas de
+histórico são filtrados pelo usuário em todos os repositórios.
+
+Não há autenticação: informar um UUID seleciona uma identidade, sem comprovar quem
+a utiliza. O cadastro e a listagem são públicos para facilitar os exercícios.
+O FAQ institucional continua compartilhado entre todos.
+
+### Preparar um ambiente anterior à mudança
+
+Esta versão não converte dados antigos. As novas revisões Alembic criam `users` e
+adicionam `transactions.user_id` obrigatório. A segunda revisão exige a tabela de
+transações vazia; falhará se houver registros antigos sem proprietário.
+
+Para reiniciar o ambiente estudantil, pare a aplicação, recrie somente seu banco
+PostgreSQL de desenvolvimento e a coleção `sessions` do MongoDB e execute
+`uv run alembic upgrade head`. Preserve o Qdrant, que contém a FAQ compartilhada.
+Use os recursos de administração do banco que você provisionou; o Compose deste
+projeto não gerencia esses bancos. Não aplique esse procedimento a bancos de outros
+projetos. A implementação não executa limpeza automática na inicialização.
+
+No navegador, remova as chaves `assessor-ia.user-id` e as que começam com
+`assessor-ia.session-id` ao recriar os bancos. A chave de sessão antiga, sem usuário,
+é ignorada. Depois gere o frontend com `npm run --prefix frontend build`, inicie a
+aplicação e crie dois usuários pela interface.
+
+### Execução e limites desta etapa
+
+Execute o backend com um único worker. O grafo é compartilhado, mas recebe um
+contexto imutável por execução. As ferramentas obtêm a identidade de um `ContextVar`
+isolado por tarefa; seus argumentos públicos não incluem o proprietário. Os serviços
+recebem `user_id` explicitamente, sem depender desse mecanismo de infraestrutura.
+
+A memória do LangGraph usa a combinação de usuário e sessão e permanece em memória:
+reiniciar o processo perde o checkpoint, mas preserva mensagens e resumos no MongoDB
+e transações no PostgreSQL. As mensagens do MongoDB não reconstroem automaticamente
+o checkpoint. A tela exibe somente mensagens trocadas enquanto está aberta.
+
+Envio e finalização da mesma sessão são serializados no processo. Sessões diferentes
+podem avançar em paralelo. Múltiplos workers exigirão checkpoint compartilhado e
+coordenação distribuída; não fazem parte desta entrega.
+
+### Validar isolamento
+
+Os testes unitários habituais continuam disponíveis com `uv run pytest` e
+`npm test --prefix frontend`. Os testes em `tests/integration/test_multiuser.py` e
+`tests/integration/test_multiuser_mongodb.py` usam containers descartáveis e não os
+bancos configurados para uso da aplicação. Execute-os com Docker disponível usando
+`uv run pytest -m integration tests/integration/test_multiuser.py tests/integration/test_multiuser_mongodb.py`.
+
+Eles cobrem saldos, buscas e alterações financeiras por proprietário, propriedade
+imutável das sessões e filtragem de histórico. Os testes de grafo e frontend também
+cobrem execuções concorrentes e troca de usuário com resposta pendente.

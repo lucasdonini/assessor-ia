@@ -9,6 +9,7 @@ from app.infrastructure.agents.financial.schemas.tool_response import (
 )
 from app.infrastructure.agents.tools.daily_balance import DailyBalanceTool
 from app.services.transaction_service import TransactionService
+from tests.user_identity import TEST_USER_ID
 
 pytestmark = pytest.mark.asyncio
 
@@ -34,7 +35,9 @@ class TestDailyBalanceTool:
 
         await tool._arun(target_date=date(2026, 6, 15))
 
-        calculate_balance.assert_awaited_once_with(date(2026, 6, 15))
+        calculate_balance.assert_awaited_once_with(
+            date(2026, 6, 15), user_id=TEST_USER_ID
+        )
 
     async def test_handles_exception(self, tool):
         tool.service.calculate_daily_balance = AsyncMock(side_effect=Exception("fail"))

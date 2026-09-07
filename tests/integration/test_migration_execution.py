@@ -1,6 +1,8 @@
 import pytest
 from sqlalchemy import inspect, text
 
+from tests.user_identity import TEST_USER_ID
+
 pytestmark = [
     pytest.mark.integration,
     pytest.mark.usefixtures("apply_migrations"),
@@ -78,6 +80,7 @@ class TestMigrationExecution:
             category=Category.FOOD,
             transaction_type=TransactionType.EXPENSE,
             source_text="teste insert",
+            user_id=TEST_USER_ID,
         )
         db_session.add(orm)
         await db_session.commit()
@@ -101,12 +104,14 @@ class TestMigrationExecution:
                     category=Category.FOOD,
                     transaction_type=TransactionType.EXPENSE,
                     source_text="food1",
+                    user_id=TEST_USER_ID,
                 ),
                 TransactionORM(
                     amount=20,
                     category=Category.HEALTH,
                     transaction_type=TransactionType.EXPENSE,
                     source_text="health1",
+                    user_id=TEST_USER_ID,
                 ),
             ]
         )

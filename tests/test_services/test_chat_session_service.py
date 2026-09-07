@@ -11,6 +11,7 @@ from app.domain.model.chat_entry import AssistantMessage, ChatEntry, HumanMessag
 from app.domain.model.chat_session import ChatSession
 from app.infrastructure.clock import FixedClock
 from app.services.chat_session_service import ChatSessionService
+from tests.user_identity import TEST_USER_ID
 
 _FIXED_TIME = datetime(2026, 8, 12, 15, 0, tzinfo=timezone.utc)
 _SESSION_ID = "session-123"
@@ -27,6 +28,7 @@ def _session(
         updated_at=_FIXED_TIME,
         summary=summary,
         entries=() if entries is None else entries,
+        user_id=TEST_USER_ID,
     )
 
 
@@ -58,7 +60,7 @@ class TestChatSessionService:
         persisted_session = _session()
         repository.get_or_create.return_value = persisted_session
 
-        result = await service.get_or_create_session(_SESSION_ID)
+        result = await service.get_or_create_session(_SESSION_ID, user_id=TEST_USER_ID)
 
         assert result is persisted_session
         repository.get_or_create.assert_awaited_once_with(_session())
@@ -72,12 +74,13 @@ class TestChatSessionService:
         ],
     )
     async def test_save_message_appends_entry(self, service, repository, message):
-        await service.save_message(_SESSION_ID, message)
+        await service.save_message(_SESSION_ID, message, user_id=TEST_USER_ID)
 
         repository.append_entry.assert_awaited_once_with(
             session_id=_SESSION_ID,
             entry=message,
             updated_at=_FIXED_TIME,
+            user_id=TEST_USER_ID,
         )
 
     @pytest.mark.asyncio
@@ -88,8 +91,7 @@ class TestChatSessionService:
 
         with pytest.raises(RuntimeError, match="MongoDB unavailable"):
             await service.save_message(
-                _SESSION_ID,
-                HumanMessage(content="Olá"),
+                _SESSION_ID, HumanMessage(content="Olá"), user_id=TEST_USER_ID
             )
 
     @pytest.mark.asyncio
@@ -97,7 +99,7 @@ class TestChatSessionService:
         summary_service.summarize_exception.return_value = "Ocorreu um erro interno."
         error = ValueError("Algo deu errado")
 
-        await service.save_error(_SESSION_ID, error)
+        await service.save_error(_SESSION_ID, error, user_id=TEST_USER_ID)
 
         repository.append_entry.assert_awaited_once()
         call = repository.append_entry.await_args
@@ -116,7 +118,7 @@ class TestChatSessionService:
         persistence_error = RuntimeError("summary unavailable")
         summary_service.summarize_exception.side_effect = persistence_error
 
-        await service.save_error(_SESSION_ID, original_error)
+        await service.save_error(_SESSION_ID, original_error, user_id=TEST_USER_ID)
 
         service._logger.exception.assert_called_once_with(
             "Failed to save chat error",
@@ -132,15 +134,18 @@ class TestChatSessionService:
         repository.find_by_session_id.return_value = _session(entries=entries)
         summary_service.summarize_session.return_value = "Resumo da sessão"
 
-        result = await service.finalize_session(_SESSION_ID)
+        result = await service.finalize_session(_SESSION_ID, user_id=TEST_USER_ID)
 
         assert result == "Resumo da sessão"
-        repository.find_by_session_id.assert_awaited_once_with(_SESSION_ID)
+        repository.find_by_session_id.assert_awaited_once_with(
+            _SESSION_ID, user_id=TEST_USER_ID
+        )
         summary_service.summarize_session.assert_awaited_once_with(entries)
         repository.update_summary.assert_awaited_once_with(
             session_id=_SESSION_ID,
             summary="Resumo da sessão",
             updated_at=_FIXED_TIME,
+            user_id=TEST_USER_ID,
         )
 
     @pytest.mark.asyncio
@@ -150,7 +155,7 @@ class TestChatSessionService:
     ):
         repository.find_by_session_id.return_value = session
 
-        result = await service.finalize_session(_SESSION_ID)
+        result = await service.finalize_session(_SESSION_ID, user_id=TEST_USER_ID)
 
         assert result is None
         summary_service.summarize_session.assert_not_awaited()
@@ -165,9 +170,11 @@ class TestChatSessionService:
             summary="Resumo existente",
         )
 
-        result = await service.finalize_session(_SESSION_ID)
+        result = await service.finalize_session(_SESSION_ID, user_id=TEST_USER_ID)
 
         assert result == "Resumo existente"
-        repository.find_by_session_id.assert_awaited_once_with(_SESSION_ID)
+        repository.find_by_session_id.assert_awaited_once_with(
+            _SESSION_ID, user_id=TEST_USER_ID
+        )
         summary_service.summarize_session.assert_not_awaited()
         repository.update_summary.assert_not_awaited()

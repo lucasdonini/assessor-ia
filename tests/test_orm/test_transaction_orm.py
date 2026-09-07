@@ -6,6 +6,7 @@ import sqlalchemy.dialects.postgresql as pg
 from app.domain.model.transaction import Category, TransactionType
 from app.infrastructure.postgres.entities.base import Base
 from app.infrastructure.postgres.entities.transaction import TransactionORM
+from tests.user_identity import TEST_USER_ID
 
 
 class TestTransactionORM:
@@ -104,6 +105,7 @@ class TestTransactionORM:
             category=Category.FOOD,
             transaction_type=TransactionType.EXPENSE,
             source_text="teste",
+            user_id=TEST_USER_ID,
         )
         assert orm.amount == 100.0
         assert orm.category == Category.FOOD
@@ -127,6 +129,7 @@ class TestTransactionORM:
             payment_method="pix",
             occurred_at=dt,
             source_text="teste",
+            user_id=TEST_USER_ID,
         )
         assert orm.id == uid
         assert orm.amount == 250.75

@@ -241,3 +241,20 @@ def test_python_logger_adapter_preserves_captured_exception() -> None:
         exc_info=exception,
         extra={"details": {"key": "value"}},
     )
+
+
+def test_user_context_restores_and_partitions_session_counters():
+    for user in ("first", "second"):
+        with (
+            logger_module.bind_user_logging_context(user),
+            logger_module.bind_session_context("same"),
+        ):
+            assert logger_module.increment_interaction() == 1
+            record = _record()
+            logger_module.ContextFilter().filter(record)
+            assert record.user_id == user
+            logger_module.clear_session_interactions("same")
+    record = _record()
+    logger_module.ContextFilter().filter(record)
+    assert record.user_id == ""
+    assert not logger_module._session_interactions

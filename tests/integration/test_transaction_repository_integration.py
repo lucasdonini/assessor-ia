@@ -11,6 +11,7 @@ from app.application.models.transaction_update import (
 )
 from app.domain.model.transaction import Category, Transaction, TransactionType
 from app.infrastructure.postgres.entities.transaction import TransactionORM
+from tests.user_identity import TEST_USER_ID
 
 pytestmark = [
     pytest.mark.integration,
@@ -27,8 +28,9 @@ class TestAddTransaction:
             transaction_type=TransactionType.EXPENSE,
             description="Exame",
             source_text="Gastei 250 com exame",
+            user_id=TEST_USER_ID,
         )
-        result = await transaction_repository.add_transaction(t)
+        result = await transaction_repository.add_transaction(t, user_id=TEST_USER_ID)
 
         assert isinstance(result, Transaction)
         assert result.amount == 250.00
@@ -36,10 +38,9 @@ class TestAddTransaction:
 
     async def test_add_applies_defaults(self, transaction_repository, db_session):
         t = Transaction(
-            amount=100.00,
-            source_text="teste default",
+            amount=100.00, source_text="teste default", user_id=TEST_USER_ID
         )
-        result = await transaction_repository.add_transaction(t)
+        result = await transaction_repository.add_transaction(t, user_id=TEST_USER_ID)
 
         assert result.category == Category.OTHER
         assert result.transaction_type == TransactionType.EXPENSE
@@ -52,8 +53,9 @@ class TestAddTransaction:
             transaction_type=TransactionType.INCOME,
             description="Dividendos",
             source_text="Recebi dividendos",
+            user_id=TEST_USER_ID,
         )
-        result = await transaction_repository.add_transaction(t)
+        result = await transaction_repository.add_transaction(t, user_id=TEST_USER_ID)
 
         orm = (
             await db_session.get(TransactionORM, result.id)
@@ -74,8 +76,9 @@ class TestAddTransaction:
             payment_method="crédito",
             occurred_at=dt,
             source_text="Jantar 89.90",
+            user_id=TEST_USER_ID,
         )
-        result = await transaction_repository.add_transaction(t)
+        result = await transaction_repository.add_transaction(t, user_id=TEST_USER_ID)
 
         assert result.amount == 89.90
         assert result.category == Category.FOOD
@@ -88,13 +91,13 @@ class TestFind:
         self, transaction_repository, seed_transactions
     ):
         params = TransactionQueryParams(limit=50)
-        results = await transaction_repository.find(params)
+        results = await transaction_repository.find(params, user_id=TEST_USER_ID)
 
         assert len(results) == 6
 
     async def test_find_by_source_text(self, transaction_repository, seed_transactions):
         params = TransactionQueryParams(source_text="almoço", limit=50)
-        results = await transaction_repository.find(params)
+        results = await transaction_repository.find(params, user_id=TEST_USER_ID)
 
         assert len(results) >= 1
 
@@ -104,13 +107,13 @@ class TestFind:
             occurred_at_end=date(2026, 6, 4),
             limit=50,
         )
-        results = await transaction_repository.find(params)
+        results = await transaction_repository.find(params, user_id=TEST_USER_ID)
 
         assert len(results) >= 3
 
     async def test_find_by_category(self, transaction_repository, seed_transactions):
         params = TransactionQueryParams(category=Category.FOOD, limit=50)
-        results = await transaction_repository.find(params)
+        results = await transaction_repository.find(params, user_id=TEST_USER_ID)
 
         assert len(results) >= 1
         for t in results:
@@ -122,7 +125,7 @@ class TestFind:
         params = TransactionQueryParams(
             transaction_type=TransactionType.INCOME, limit=50
         )
-        results = await transaction_repository.find(params)
+        results = await transaction_repository.find(params, user_id=TEST_USER_ID)
 
         assert len(results) >= 2
 
@@ -134,19 +137,19 @@ class TestFind:
             transaction_type=TransactionType.INCOME,
             limit=50,
         )
-        results = await transaction_repository.find(params)
+        results = await transaction_repository.find(params, user_id=TEST_USER_ID)
 
         assert len(results) >= 1
 
     async def test_find_with_limit(self, transaction_repository, seed_transactions):
         params = TransactionQueryParams(limit=2)
-        results = await transaction_repository.find(params)
+        results = await transaction_repository.find(params, user_id=TEST_USER_ID)
 
         assert len(results) <= 2
 
     async def test_find_no_results(self, transaction_repository, seed_transactions):
         params = TransactionQueryParams(source_text="naoexiste_texto_xyz", limit=50)
-        results = await transaction_repository.find(params)
+        results = await transaction_repository.find(params, user_id=TEST_USER_ID)
 
         assert results == []
 
@@ -154,7 +157,7 @@ class TestFind:
         self, transaction_repository, seed_transactions
     ):
         params = TransactionQueryParams(limit=0)
-        results = await transaction_repository.find(params)
+        results = await transaction_repository.find(params, user_id=TEST_USER_ID)
 
         assert results == []
 
@@ -163,17 +166,21 @@ class TestGetBalance:
     async def test_get_balance_all_time(
         self, transaction_repository, seed_transactions
     ):
-        balance = await transaction_repository.get_balance(None)
+        balance = await transaction_repository.get_balance(None, user_id=TEST_USER_ID)
         assert balance == 7600.0
 
     async def test_get_balance_at_end_of_day(
         self, transaction_repository, seed_transactions
     ):
-        balance = await transaction_repository.get_balance(date(2026, 6, 1))
+        balance = await transaction_repository.get_balance(
+            date(2026, 6, 1), user_id=TEST_USER_ID
+        )
         assert balance == 4850.0
 
     async def test_get_balance_no_transactions(self, transaction_repository):
-        balance = await transaction_repository.get_balance(date(2020, 1, 1))
+        balance = await transaction_repository.get_balance(
+            date(2020, 1, 1), user_id=TEST_USER_ID
+        )
         assert balance == 0.0
 
 
@@ -187,7 +194,9 @@ class TestUpdateTransaction:
             amount=5500.00,
             description="Salário atualizado",
         )
-        result = await transaction_repository.update_transaction(params)
+        result = await transaction_repository.update_transaction(
+            params, user_id=TEST_USER_ID
+        )
 
         assert result is not None
         assert result.amount == 5500.00
@@ -205,7 +214,9 @@ class TestUpdateTransaction:
             ),
             amount=175.00,
         )
-        result = await transaction_repository.update_transaction(params)
+        result = await transaction_repository.update_transaction(
+            params, user_id=TEST_USER_ID
+        )
 
         assert result is not None
         assert result.amount == 175.00

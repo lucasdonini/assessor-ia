@@ -17,6 +17,7 @@ from app.infrastructure.agents.tools.delete_transaction import (
     DeleteTransactionTool,
 )
 from app.services.transaction_service import TransactionService
+from tests.user_identity import TEST_USER_ID
 
 pytestmark = pytest.mark.asyncio
 
@@ -37,6 +38,7 @@ class TestDeleteTransactionTool:
             category=Category.OTHER,
             transaction_type=TransactionType.EXPENSE,
             source_text="cancelado",
+            user_id=TEST_USER_ID,
         )
         tool.service.update_transaction = AsyncMock(return_value=updated)
 

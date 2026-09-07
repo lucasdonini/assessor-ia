@@ -120,7 +120,7 @@ describe('App', () => {
     await waitFor(() =>
       expect(sendChatMessage).toHaveBeenCalledWith(
         SESSION_ID,
-        'Continuar conversa',
+        USER_ID, 'Continuar conversa',
       ),
     )
     expect(randomUUID).not.toHaveBeenCalled()
@@ -157,12 +157,12 @@ describe('App', () => {
     expect(sendChatMessage).toHaveBeenNthCalledWith(
       1,
       SESSION_ID,
-      'Primeira pergunta',
+      USER_ID, 'Primeira pergunta',
     )
     expect(sendChatMessage).toHaveBeenNthCalledWith(
       2,
       SESSION_ID,
-      'Segunda pergunta',
+      USER_ID, 'Segunda pergunta',
     )
   })
 
@@ -190,7 +190,7 @@ describe('App', () => {
     await waitFor(() =>
       expect(sendChatMessage).toHaveBeenCalledWith(
         NEXT_SESSION_ID,
-        'Nova pergunta',
+        USER_ID, 'Nova pergunta',
       ),
     )
   })
@@ -218,7 +218,7 @@ describe('App', () => {
     await waitFor(() =>
       expect(sendChatMessage).toHaveBeenCalledWith(
         SESSION_ID,
-        'Tentar novamente',
+        USER_ID, 'Tentar novamente',
       ),
     )
   })
@@ -390,4 +390,27 @@ describe('App', () => {
     await screen.findByText('Resposta sem armazenamento')
     expect(sendChatMessage).toHaveBeenCalledWith(SESSION_ID, USER_ID, 'Pergunta')
   })
+})
+
+
+it('descarta a resposta pendente ao trocar de usuário', async () => {
+  const other = '123e4567-e89b-12d3-a456-426614174088'
+  const pending = deferred<Awaited<ReturnType<typeof sendChatMessage>>>()
+  vi.stubGlobal('crypto', { randomUUID: vi.fn().mockReturnValue(SESSION_ID) })
+  vi.mocked(listUsers).mockResolvedValue([
+    { id: USER_ID, created_at: '2026-09-07' },
+    { id: other, created_at: '2026-09-07' },
+  ])
+  vi.mocked(sendChatMessage).mockReturnValue(pending.promise)
+  await act(async () => { render(<App />) })
+  fireEvent.change(screen.getByLabelText('Sua mensagem'), { target: { value: 'Segredo A' } })
+  fireEvent.submit(screen.getByRole('form'))
+  fireEvent.change(screen.getByLabelText('Usuário'), { target: { value: other } })
+  await act(async () => {
+    pending.resolve({ session_id: SESSION_ID, content: 'Resposta privada A', called_agents: [] })
+  })
+  expect(screen.queryByText('Segredo A')).toBeNull()
+  expect(screen.queryByText('Resposta privada A')).toBeNull()
+  expect(localStorage.getItem(`assessor-ia.session-id:${other}`)).toBe(SESSION_ID)
+  expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBe(SESSION_ID)
 })

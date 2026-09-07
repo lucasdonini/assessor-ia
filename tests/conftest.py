@@ -5,6 +5,8 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tests.user_identity import TEST_USER_ID
+
 
 def _patch_create_agent_model_edge():
     """Fix LangChain + LangGraph 1.1.6 incompatibility in `create_agent`."""
@@ -69,6 +71,7 @@ def sample_transaction() -> Transaction:
         occurred_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc),
         source_text="Gastei 150 reais com almoço",
         is_canceled=False,
+        user_id=TEST_USER_ID,
     )
 
 
@@ -84,6 +87,7 @@ def sample_transaction_with_id(sample_transaction) -> Transaction:
         occurred_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc),
         updated_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc),
         is_canceled=sample_transaction.is_canceled,
+        user_id=TEST_USER_ID,
     )
 
 
@@ -180,6 +184,7 @@ def sample_transactions_list() -> list[Transaction]:
             description="Salário",
             occurred_at=datetime(2026, 6, 1, 8, 0, 0, tzinfo=timezone.utc),
             source_text="Recebi salário",
+            user_id=TEST_USER_ID,
         ),
         Transaction(
             amount=50.00,
@@ -188,5 +193,15 @@ def sample_transactions_list() -> list[Transaction]:
             description="Jantar",
             occurred_at=datetime(2026, 6, 2, 20, 0, 0, tzinfo=timezone.utc),
             source_text="Gastei 50 no jantar",
+            user_id=TEST_USER_ID,
         ),
     ]
+
+
+@pytest.fixture(autouse=True)
+def tool_user_context():
+    from app.application.models.user_context import UserContext
+    from app.infrastructure.agents._core.user_context import bind_user_context
+
+    with bind_user_context(UserContext(TEST_USER_ID)):
+        yield

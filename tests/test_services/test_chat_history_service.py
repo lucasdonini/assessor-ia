@@ -10,6 +10,7 @@ from app.application.repositories.chat_session_repository import (
 from app.domain.model.chat_entry import AssistantMessage, HumanMessage
 from app.domain.model.chat_session import ChatSession, ChatSessionSummarized
 from app.services.chat_history_service import ChatHistoryService
+from tests.user_identity import TEST_USER_ID
 
 
 class TestChatHistoryService:
@@ -33,14 +34,17 @@ class TestChatHistoryService:
                 session_id="session-123",
                 summary="Resumo",
                 started_at=fixed,
+                user_id=TEST_USER_ID,
             )
         ]
         repository.find_summaries.return_value = summaries
 
-        result = await service.fetch_history(search=search)
+        result = await service.fetch_history(search=search, user_id=TEST_USER_ID)
 
         assert result == summaries
-        repository.find_summaries.assert_awaited_once_with(search=search, limit=3)
+        repository.find_summaries.assert_awaited_once_with(
+            search=search, limit=3, user_id=TEST_USER_ID
+        )
 
     @pytest.mark.asyncio
     async def test_fetch_entries_found(self, service, repository):
@@ -53,9 +57,10 @@ class TestChatHistoryService:
             session_id="session-123",
             started_at=fixed,
             entries=entries,
+            user_id=TEST_USER_ID,
         )
 
-        result = await service.fetch_entries("session-123")
+        result = await service.fetch_entries("session-123", user_id=TEST_USER_ID)
 
         assert result == entries
 
@@ -63,6 +68,6 @@ class TestChatHistoryService:
     async def test_fetch_entries_not_found(self, service, repository):
         repository.find_by_session_id.return_value = None
 
-        result = await service.fetch_entries("nonexistent")
+        result = await service.fetch_entries("nonexistent", user_id=TEST_USER_ID)
 
         assert result == ()

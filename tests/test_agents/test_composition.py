@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.application.models.user_context import UserContext
 from app.application.ports.faq_search import FaqSearch
 from app.application.ports.logger import Logger
 from app.domain.model.chat_entry import HumanMessage
@@ -22,6 +23,7 @@ from app.infrastructure.agents._core.state import GraphState, GraphStateKeys
 from app.infrastructure.clock import FixedClock
 from app.services.chat_history_service import ChatHistoryService
 from app.services.transaction_service import TransactionService
+from tests.user_identity import TEST_USER_ID
 
 
 class _StubNode(AgentNode):
@@ -134,6 +136,7 @@ async def test_agent_graph_times_out() -> None:
         await graph.execute_agent_flux(
             HumanMessage(content="teste"),
             session_id="timeout-test",
+            context=UserContext(TEST_USER_ID),
         )
 
 

@@ -32,7 +32,7 @@ class TestAddTransactionTool:
             source_text="test",
         )
         tool.service.add_transaction = AsyncMock(
-            side_effect=lambda transaction: transaction
+            side_effect=lambda transaction, *, user_id: transaction
         )
 
         result = await tool._arun(t)

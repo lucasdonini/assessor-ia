@@ -1,5 +1,5 @@
 import json
-from unittest.mock import MagicMock
+from unittest.mock import ANY, MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -39,6 +39,7 @@ async def test_unexpected_exception_is_forwarded_to_logger() -> None:
     logger.exception.assert_called_once_with(
         "Unhandled error",
         exception=exception,
+        details={"user_id": ANY},
     )
 
 
@@ -59,7 +60,7 @@ async def test_timeout_is_logged_without_unexpected_exception_traceback() -> Non
     assert response.status_code == 504
     logger.warning.assert_called_once_with(
         "Request timed out",
-        details={"exception_type": "TimeoutError"},
+        details={"exception_type": "TimeoutError", "user_id": ANY},
     )
     logger.exception.assert_not_called()
 
@@ -147,4 +148,5 @@ async def test_unexpected_exception_without_session_id_is_still_handled() -> Non
     logger.exception.assert_called_once_with(
         "Unhandled error",
         exception=exception,
+        details={"user_id": ANY},
     )

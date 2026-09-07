@@ -16,6 +16,7 @@ from testcontainers.community.postgres import PostgresContainer
 
 from app.domain.model.transaction import Category, TransactionType
 from app.infrastructure.postgres.entities.transaction import TransactionORM
+from app.infrastructure.postgres.entities.user import UserORM
 from app.infrastructure.postgres.pg_connection import (
     build_async_postgres_url,
     build_sync_postgres_url,
@@ -24,6 +25,7 @@ from app.infrastructure.postgres.repositories.transaction_repository import (
     SQLAlchemyTransactionRepository,
 )
 from app.services.transaction_service import TransactionService
+from tests.user_identity import TEST_USER_ID
 
 ALEMBIC_CFG = AlembicConfig(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
 
@@ -67,6 +69,8 @@ async def db_session(raw_engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
     transaction = await connection.begin()
     session = AsyncSession(bind=connection, expire_on_commit=False)
 
+    session.add(UserORM(id=TEST_USER_ID))
+    await session.flush()
     yield session
 
     await session.close()
@@ -110,6 +114,7 @@ async def _insert_seed_transactions(
             description="Salário",
             occurred_at=datetime(2026, 6, 1, 8, 0, 0, tzinfo=timezone.utc),
             source_text="Recebi salário de 5000 reais",
+            user_id=TEST_USER_ID,
         ),
         TransactionORM(
             amount=150.00,
@@ -118,6 +123,7 @@ async def _insert_seed_transactions(
             description="Almoço",
             occurred_at=datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc),
             source_text="Gastei 150 reais com almoço",
+            user_id=TEST_USER_ID,
         ),
         TransactionORM(
             amount=3000.00,
@@ -126,6 +132,7 @@ async def _insert_seed_transactions(
             description="Freela",
             occurred_at=datetime(2026, 6, 2, 14, 0, 0, tzinfo=timezone.utc),
             source_text="Recebi 3000 de freela",
+            user_id=TEST_USER_ID,
         ),
         TransactionORM(
             amount=50.00,
@@ -134,6 +141,7 @@ async def _insert_seed_transactions(
             description="Uber",
             occurred_at=datetime(2026, 6, 2, 18, 0, 0, tzinfo=timezone.utc),
             source_text="Gastei 50 de uber",
+            user_id=TEST_USER_ID,
         ),
         TransactionORM(
             amount=200.00,
@@ -142,6 +150,7 @@ async def _insert_seed_transactions(
             description="Farmácia",
             occurred_at=datetime(2026, 6, 3, 10, 0, 0, tzinfo=timezone.utc),
             source_text="Comprei remedio",
+            user_id=TEST_USER_ID,
         ),
         TransactionORM(
             amount=1000.00,
@@ -150,6 +159,7 @@ async def _insert_seed_transactions(
             description="Investimento",
             occurred_at=datetime(2026, 6, 3, 16, 0, 0, tzinfo=timezone.utc),
             source_text="Transferi 1000 para investimentos",
+            user_id=TEST_USER_ID,
         ),
     ]
     session.add_all(seeds)

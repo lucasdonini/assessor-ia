@@ -14,7 +14,11 @@ from ..application.ports.text_generator import TextGenerator
 from ..application.repositories.chat_session_repository import ChatSessionRepository
 from ..infrastructure.clock import SystemClock
 from ..infrastructure.llms import fast_llm
-from ..infrastructure.logger import create_logger
+from ..infrastructure.logger import (
+    bind_user_logging_context,
+    clear_session_interactions,
+    create_logger,
+)
 from ..infrastructure.mongodb.repositories.chat_session_repository import (
     BeanieChatSessionRepository,
 )
@@ -109,5 +113,10 @@ async def coordinate_session(
     context: Annotated[UserContext, Depends(get_user_context)],
 ) -> AsyncGenerator[None, None]:
     coordinator: SessionCoordinator = request.app.state.session_coordinator
-    async with coordinator.hold(session_id):
-        yield
+    with bind_user_logging_context(str(context.user_id)):
+        async with coordinator.hold(session_id):
+            try:
+                yield
+            finally:
+                if getattr(request.state, "session_finalized", False):
+                    clear_session_interactions(session_id)

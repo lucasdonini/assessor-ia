@@ -1,3 +1,4 @@
+import { listUsers } from './api/user'
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -9,7 +10,9 @@ import App from './App'
 
 const SESSION_ID = '123e4567-e89b-12d3-a456-426614174000'
 const NEXT_SESSION_ID = '123e4567-e89b-12d3-a456-426614174001'
-const SESSION_STORAGE_KEY = 'assessor-ia.session-id'
+const USER_ID = '123e4567-e89b-12d3-a456-426614174099'
+const SESSION_STORAGE_KEY = `assessor-ia.session-id:${USER_ID}`
+vi.mock('./api/user', () => ({ listUsers: vi.fn(), createUser: vi.fn() }))
 
 vi.mock('./api/chat', () => ({
   sendChatMessage: vi.fn(),
@@ -26,7 +29,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function renderApp(nextSessionId = SESSION_ID) {
+async function renderApp(nextSessionId = SESSION_ID) {
   const randomUUID = vi
     .fn()
     .mockReturnValueOnce(SESSION_ID)
@@ -34,7 +37,8 @@ function renderApp(nextSessionId = SESSION_ID) {
   vi.stubGlobal('crypto', {
     randomUUID,
   })
-  render(<App />)
+  vi.mocked(listUsers).mockResolvedValue([{ id: USER_ID, created_at: '2026-09-07' }])
+  await act(async () => { render(<App />) })
   return { randomUUID }
 }
 
@@ -53,12 +57,12 @@ describe('App', () => {
       session_id: SESSION_ID,
       called_agents: [], content: '**Resposta** do assistente',
     })
-    renderApp()
+    await renderApp()
 
     await user.type(screen.getByLabelText('Sua mensagem'), 'Minha pergunta')
     await user.click(screen.getByRole('button', { name: 'Enviar mensagem' }))
 
-    expect(sendChatMessage).toHaveBeenCalledWith(SESSION_ID, 'Minha pergunta')
+    expect(sendChatMessage).toHaveBeenCalledWith(SESSION_ID, USER_ID, 'Minha pergunta')
     await waitFor(() => {
       expect(screen.getByRole('log').textContent).toContain(
         'Resposta do assistente',
@@ -71,7 +75,7 @@ describe('App', () => {
     vi.mocked(sendChatMessage).mockRejectedValue(
       new Error('Não foi possível conectar ao assistente.'),
     )
-    renderApp()
+    await renderApp()
 
     await user.type(screen.getByLabelText('Sua mensagem'), 'Minha pergunta')
     await user.click(screen.getByRole('button', { name: 'Enviar mensagem' }))
@@ -84,8 +88,8 @@ describe('App', () => {
     expect(document.activeElement).toBe(input)
   })
 
-  it('não permite enviar uma mensagem vazia', () => {
-    renderApp()
+  it('não permite enviar uma mensagem vazia', async () => {
+    await renderApp()
 
     const submitButton = screen.getByRole('button', {
       name: 'Enviar mensagem',
@@ -94,8 +98,8 @@ describe('App', () => {
     expect(sendChatMessage).not.toHaveBeenCalled()
   })
 
-  it('persiste a sessão criada para reutilizá-la depois', () => {
-    renderApp()
+  it('persiste a sessão criada para reutilizá-la depois', async () => {
+    await renderApp()
 
     expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBe(SESSION_ID)
   })
@@ -108,7 +112,7 @@ describe('App', () => {
       called_agents: [], content: 'Resposta do assistente',
     })
 
-    const { randomUUID } = renderApp(NEXT_SESSION_ID)
+    const { randomUUID } = await renderApp(NEXT_SESSION_ID)
 
     await user.type(screen.getByLabelText('Sua mensagem'), 'Continuar conversa')
     await user.click(screen.getByRole('button', { name: 'Enviar mensagem' }))
@@ -122,10 +126,10 @@ describe('App', () => {
     expect(randomUUID).not.toHaveBeenCalled()
   })
 
-  it('substitui um identificador persistido inválido', () => {
+  it('substitui um identificador persistido inválido', async () => {
     localStorage.setItem(SESSION_STORAGE_KEY, 'id-inválido')
 
-    renderApp()
+    await renderApp()
 
     expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBe(SESSION_ID)
   })
@@ -136,7 +140,7 @@ describe('App', () => {
       session_id: SESSION_ID,
       called_agents: [], content: 'Resposta do assistente',
     })
-    renderApp()
+    await renderApp()
 
     const messageInput = screen.getByLabelText('Sua mensagem')
     const submitButton = screen.getByRole('button', { name: 'Enviar mensagem' })
@@ -172,11 +176,11 @@ describe('App', () => {
       session_id: NEXT_SESSION_ID,
       called_agents: [], content: 'Resposta da nova sessão',
     })
-    renderApp(NEXT_SESSION_ID)
+    await renderApp(NEXT_SESSION_ID)
 
     await user.click(screen.getByRole('button', { name: 'Nova sessão' }))
     await waitFor(() =>
-      expect(finalizeSession).toHaveBeenCalledWith(SESSION_ID),
+      expect(finalizeSession).toHaveBeenCalledWith(SESSION_ID, USER_ID),
     )
     expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBe(NEXT_SESSION_ID)
 
@@ -200,7 +204,7 @@ describe('App', () => {
       session_id: SESSION_ID,
       called_agents: [], content: 'Resposta do assistente',
     })
-    renderApp(NEXT_SESSION_ID)
+    await renderApp(NEXT_SESSION_ID)
 
     await user.click(screen.getByRole('button', { name: 'Nova sessão' }))
     expect(
@@ -224,7 +228,7 @@ describe('App', () => {
     vi.mocked(sendChatMessage)
       .mockResolvedValueOnce({ session_id: SESSION_ID, called_agents: [], content: 'Primeira resposta' })
       .mockResolvedValueOnce({ session_id: SESSION_ID, called_agents: [], content: 'Segunda resposta' })
-    renderApp()
+    await renderApp()
 
     const input = screen.getByLabelText('Sua mensagem')
     await user.type(input, 'Primeira pergunta{Enter}')
@@ -257,7 +261,7 @@ describe('App', () => {
         session_id: SESSION_ID, content: 'Solicitação bloqueada',
         called_agents: ['input_guardrail'],
       })
-    renderApp()
+    await renderApp()
     const input = screen.getByLabelText('Sua mensagem')
     await user.type(input, 'Saldo{Enter}')
     await screen.findByText('Resposta financeira')
@@ -280,7 +284,7 @@ describe('App', () => {
       session_id: SESSION_ID, content: 'Resposta',
       called_agents: ['router', 'novo_especialista', 'router'],
     })
-    renderApp()
+    await renderApp()
     await user.type(screen.getByLabelText('Sua mensagem'), 'Pergunta{Enter}')
     await screen.findByText('Resposta')
     const list = screen.getByRole('list', { name: 'Etapas executadas nesta pergunta' })
@@ -294,7 +298,7 @@ describe('App', () => {
     vi.mocked(sendChatMessage).mockResolvedValue({
       session_id: SESSION_ID, called_agents: [], content: 'Resposta',
     })
-    renderApp()
+    await renderApp()
     const input = screen.getByLabelText('Sua mensagem') as HTMLTextAreaElement
 
     await user.type(input, 'Linha um{Shift>}{Enter}{/Shift}Linha dois')
@@ -303,11 +307,11 @@ describe('App', () => {
 
     await user.keyboard('{Control>}{Enter}{/Control}')
     await screen.findByText('Resposta')
-    expect(sendChatMessage).toHaveBeenCalledWith(SESSION_ID, 'Linha um\nLinha dois')
+    expect(sendChatMessage).toHaveBeenCalledWith(SESSION_ID, USER_ID, 'Linha um\nLinha dois')
   })
 
-  it('não envia Enter enquanto o teclado está compondo um caractere', () => {
-    renderApp()
+  it('não envia Enter enquanto o teclado está compondo um caractere', async () => {
+    await renderApp()
     const input = screen.getByLabelText('Sua mensagem')
     fireEvent.change(input, { target: { value: 'Pergunta' } })
     fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
@@ -318,7 +322,7 @@ describe('App', () => {
   it('bloqueia envio duplicado e nova sessão enquanto aguarda resposta', async () => {
     const pending = deferred<Awaited<ReturnType<typeof sendChatMessage>>>()
     vi.mocked(sendChatMessage).mockReturnValue(pending.promise)
-    renderApp()
+    await renderApp()
     const input = screen.getByLabelText('Sua mensagem') as HTMLTextAreaElement
     const form = screen.getByRole('form', { name: 'Enviar mensagem ao assistente' })
     const reset = screen.getByRole('button', { name: 'Nova sessão' }) as HTMLButtonElement
@@ -349,7 +353,7 @@ describe('App', () => {
     vi.mocked(sendChatMessage).mockResolvedValue({
       session_id: SESSION_ID, called_agents: [], content: 'Resposta antiga',
     })
-    renderApp(NEXT_SESSION_ID)
+    await renderApp(NEXT_SESSION_ID)
     const input = screen.getByLabelText('Sua mensagem') as HTMLTextAreaElement
     await user.type(input, 'Pergunta antiga{Enter}')
     await screen.findByText('Resposta antiga')
@@ -381,9 +385,9 @@ describe('App', () => {
       session_id: SESSION_ID, called_agents: [], content: 'Resposta sem armazenamento',
     })
     const user = userEvent.setup()
-    renderApp()
+    await renderApp()
     await user.type(screen.getByLabelText('Sua mensagem'), 'Pergunta{Enter}')
     await screen.findByText('Resposta sem armazenamento')
-    expect(sendChatMessage).toHaveBeenCalledWith(SESSION_ID, 'Pergunta')
+    expect(sendChatMessage).toHaveBeenCalledWith(SESSION_ID, USER_ID, 'Pergunta')
   })
 })

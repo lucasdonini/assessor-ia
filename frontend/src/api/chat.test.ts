@@ -16,14 +16,14 @@ describe('sendChatMessage', () => {
         }),
         {
           status: 200,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-User-ID': 'user-123' },
         },
       ),
     )
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(
-      sendChatMessage('session-123', 'Minha pergunta'),
+      sendChatMessage('session-123', 'user-123', 'Minha pergunta'),
     ).resolves.toEqual({
       session_id: 'session-123',
       content: 'Resposta do assistente',
@@ -31,7 +31,7 @@ describe('sendChatMessage', () => {
     })
     expect(fetchMock).toHaveBeenCalledWith('/api/chat/session-123', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-User-ID': 'user-123' },
       body: JSON.stringify({ message: 'Minha pergunta' }),
     })
   })
@@ -49,7 +49,7 @@ describe('sendChatMessage', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    await sendChatMessage('sessão 123', 'Minha pergunta')
+    await sendChatMessage('sessão 123', 'user-123', 'Minha pergunta')
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/chat/sess%C3%A3o%20123',
@@ -61,7 +61,7 @@ describe('sendChatMessage', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')))
 
     await expect(
-      sendChatMessage('session-123', 'Minha pergunta'),
+      sendChatMessage('session-123', 'user-123', 'Minha pergunta'),
     ).rejects.toThrow(
       'Não foi possível conectar ao assistente.',
     )
@@ -71,7 +71,7 @@ describe('sendChatMessage', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 500 })))
 
     await expect(
-      sendChatMessage('session-123', 'Minha pergunta'),
+      sendChatMessage('session-123', 'user-123', 'Minha pergunta'),
     ).rejects.toThrow(
       'Não foi possível obter uma resposta do assistente.',
     )
@@ -83,7 +83,7 @@ describe('sendChatMessage', () => {
         session_id: 'session-123', content: 'Resposta', called_agents: calledAgents,
       }), { status: 200 })))
 
-      await expect(sendChatMessage('session-123', 'Pergunta')).rejects.toThrow(
+      await expect(sendChatMessage('session-123', 'user-123', 'Pergunta')).rejects.toThrow(
         'O assistente retornou uma resposta em formato inválido.',
       )
     },
@@ -93,24 +93,24 @@ describe('sendChatMessage', () => {
     new Response('conteúdo inválido', { status: 200 }),
     new Response(JSON.stringify({ session_id: 'session-123' }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-User-ID': 'user-123' },
     }),
     new Response(
       JSON.stringify({ session_id: 'outra-sessão', content: 'texto' }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-User-ID': 'user-123' },
       },
     ),
     new Response(JSON.stringify({ session_id: 'session-123', content: 1 }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-User-ID': 'user-123' },
     }),
   ])('rejeita resposta em formato inesperado', async (response) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response))
 
     await expect(
-      sendChatMessage('session-123', 'Minha pergunta'),
+      sendChatMessage('session-123', 'user-123', 'Minha pergunta'),
     ).rejects.toThrow(
       'O assistente retornou uma resposta em formato inválido.',
     )

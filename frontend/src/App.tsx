@@ -1,3 +1,4 @@
+import { createUser, listUsers, type User } from './api/user'
 import {
   type KeyboardEvent,
   type SubmitEvent,
@@ -35,23 +36,23 @@ const AGENT_LABELS: Readonly<Record<string, string>> = {
 type Phase = 'idle' | 'sending' | 'finalizing'
 type Connection = 'ready' | 'connected' | 'error'
 
-function persistSessionId(sessionId: string) {
+function persistSessionId(sessionId: string, userId: string) {
   try {
-    localStorage.setItem(SESSION_STORAGE_KEY, sessionId)
+    localStorage.setItem(`${SESSION_STORAGE_KEY}:${userId}`, sessionId)
   } catch {
     // The conversation still works for the lifetime of the current page.
   }
 }
 
-function createSessionId() {
+function createSessionId(userId: string) {
   const sessionId = crypto.randomUUID()
-  persistSessionId(sessionId)
+  persistSessionId(sessionId, userId)
   return sessionId
 }
 
-function getOrCreateSessionId() {
+function getOrCreateSessionId(userId: string) {
   try {
-    const persistedSessionId = localStorage.getItem(SESSION_STORAGE_KEY)
+    const persistedSessionId = localStorage.getItem(`${SESSION_STORAGE_KEY}:${userId}`)
     if (persistedSessionId && UUID_PATTERN.test(persistedSessionId)) {
       return persistedSessionId
     }
@@ -59,11 +60,11 @@ function getOrCreateSessionId() {
     // Fall back to an in-memory identifier when storage is unavailable.
   }
 
-  return createSessionId()
+  return createSessionId(userId)
 }
 
-function App() {
-  const [sessionId, setSessionId] = useState(getOrCreateSessionId)
+function Chat({ userId }: { userId: string }) {
+  const [sessionId, setSessionId] = useState(() => getOrCreateSessionId(userId))
   const [draft, setDraft] = useState('')
   const [messages, setMessages] = useState<readonly Message[]>([])
   const [phase, setPhase] = useState<Phase>('idle')
@@ -71,6 +72,11 @@ function App() {
   const [summary, setSummary] = useState<string | null>(null)
   const [notice, setNotice] = useState('')
   const [finalizationError, setFinalizationError] = useState('')
+  const activeRef = useRef(true)
+  useEffect(() => {
+    activeRef.current = true
+    return () => { activeRef.current = false }
+  }, [])
   const busyRef = useRef(false)
   const nextMessageId = useRef(0)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -116,7 +122,8 @@ function App() {
     setDraft('')
 
     try {
-      const reply = await sendChatMessage(sessionId, question)
+      const reply = await sendChatMessage(sessionId, userId, question)
+      if (!activeRef.current) return
       appendMessage('assistant', reply.content, reply.called_agents)
       setConnection('connected')
     } catch (error: unknown) {
@@ -143,8 +150,9 @@ function App() {
     setFinalizationError('')
 
     try {
-      const result = await finalizeSession(sessionId)
-      setSessionId(createSessionId())
+      const result = await finalizeSession(sessionId, userId)
+      if (!activeRef.current) return
+      setSessionId(createSessionId(userId))
       setMessages([])
       setDraft('')
       setSummary(result.session_summary)
@@ -335,6 +343,70 @@ function App() {
       </section>
     </main>
   )
+}
+
+const USER_STORAGE_KEY = 'assessor-ia.user-id'
+
+function App() {
+  const [users, setUsers] = useState<User[]>([])
+  const [userId, setUserId] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [creating, setCreating] = useState(false)
+  const [error, setError] = useState('')
+  const [reload, setReload] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    setError('')
+    listUsers().then((loaded) => {
+      if (!active) return
+      setUsers(loaded)
+      let saved: string | null = null
+      try { saved = localStorage.getItem(USER_STORAGE_KEY) } catch { /* Memory only. */ }
+      setUserId(loaded.find((user) => user.id === saved)?.id ?? loaded[0]?.id ?? '')
+    }).catch(() => {
+      if (active) setError('Não foi possível carregar os usuários. Tente novamente.')
+    }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [reload])
+
+  function selectUser(id: string) {
+    setUserId(id)
+    try { localStorage.setItem(USER_STORAGE_KEY, id) } catch { /* Memory only. */ }
+  }
+
+  async function handleCreateUser() {
+    if (creating) return
+    setCreating(true)
+    setError('')
+    try {
+      const user = await createUser()
+      setUsers((previous) => [...previous, user])
+      selectUser(user.id)
+    } catch {
+      setError('Não foi possível criar o usuário. Tente novamente.')
+    } finally { setCreating(false) }
+  }
+
+  return <>
+    <section className="user-picker" aria-label="Usuários de demonstração">
+      <label htmlFor="active-user">Usuário</label>
+      <select id="active-user" value={userId} disabled={loading || creating}
+        onChange={(event) => selectUser(event.target.value)}>
+        {!users.length && <option value="">{loading ? 'Carregando…' : 'Crie um usuário'}</option>}
+        {users.map((user, index) => <option key={user.id} value={user.id}>
+          Usuário {index + 1} · {user.id.slice(0, 8)}
+        </option>)}
+      </select>
+      <button type="button" onClick={handleCreateUser} disabled={loading || creating}>
+        {creating ? 'Criando…' : 'Criar usuário'}
+      </button>
+      {error && <><p role="alert">{error}</p>
+        <button type="button" onClick={() => setReload((value) => value + 1)}>Recarregar usuários</button></>}
+    </section>
+    {userId && <Chat key={userId} userId={userId} />}
+  </>
 }
 
 export default App

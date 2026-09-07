@@ -134,7 +134,7 @@ class BeanieChatSessionRepository:
         self, search: str = "", limit: int = 3, *, user_id: UUID
     ) -> list[ChatSessionSummarized]:
         find_filter: list[Mapping] = [
-            ChatSessionDocument.user_id == user_id,
+            {"user_id": user_id},
             NotIn(ChatSessionDocument.summary, [None, ""]),
         ]
         if search:

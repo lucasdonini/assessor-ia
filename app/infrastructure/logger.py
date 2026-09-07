@@ -17,9 +17,10 @@ from .paths import SRC
 from .settings import settings
 
 _interaction_counter: ContextVar[int] = ContextVar("interaction_counter", default=0)
+_user_id: ContextVar[str] = ContextVar("user_id", default="")
 _session_id: ContextVar[str] = ContextVar("session_id", default="")
 _trace_id: ContextVar[str] = ContextVar("trace_id", default="")
-_session_interactions: dict[str, int] = {}
+_session_interactions: dict[tuple[str, str], int] = {}
 _session_interactions_lock = Lock()
 
 
@@ -109,15 +110,15 @@ def increment_interaction() -> int:
         interaction = _interaction_counter.get() + 1
     else:
         with _session_interactions_lock:
-            interaction = _session_interactions.get(session_id, 0) + 1
-            _session_interactions[session_id] = interaction
+            interaction = _session_interactions.get((_user_id.get(), session_id), 0) + 1
+            _session_interactions[(_user_id.get(), session_id)] = interaction
     _interaction_counter.set(interaction)
     return interaction
 
 
 def clear_session_interactions(session_id: str) -> None:
     with _session_interactions_lock:
-        _session_interactions.pop(session_id, None)
+        _session_interactions.pop((_user_id.get(), session_id), None)
 
 
 _TOP_LEVEL_MODULES = "|".join(d.name for d in SRC.iterdir() if d.is_dir())
@@ -143,6 +144,7 @@ class ContextFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         structured_record = cast(StructuredLogRecord, record)
         structured_record.interaction = _interaction_counter.get()
+        structured_record.user_id = _user_id.get()
         structured_record.session_id = _session_id.get()
         structured_record.trace_id = _trace_id.get()
         structured_record.agent = _short_module_name(record.name)
@@ -151,6 +153,7 @@ class ContextFilter(logging.Filter):
 
 class StructuredLogRecord(logging.LogRecord):
     agent: str | None = None
+    user_id: str = "-"
     session_id: str = "-"
     trace_id: str = "-"
     interaction: int = 0
@@ -167,7 +170,10 @@ class StructuredFormatter(logging.Formatter):
         session = record.session_id[:8] if record.session_id else "-"
         trace = record.trace_id[:8] if record.trace_id else "-"
         interaction = record.interaction
-        ctx = f"session={session} int={interaction} trace={trace}"
+        ctx = (
+            f"user={record.user_id or '-'} session={session} "
+            f"int={interaction} trace={trace}"
+        )
 
         message = record.getMessage().replace("\n", "\n\t")
 
@@ -280,3 +286,12 @@ def setup_logger() -> None:
         lg = logging.getLogger(logger_name)
         lg.setLevel(logging.WARNING)
         lg.propagate = False
+
+
+@contextmanager
+def bind_user_logging_context(user_id: str) -> Generator[None, None, None]:
+    token = _user_id.set(user_id)
+    try:
+        yield
+    finally:
+        _user_id.reset(token)

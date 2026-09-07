@@ -34,7 +34,11 @@ def register_exception_handlers(
         with session_context_factory(session_id):
             logger.warning(
                 "Application error",
-                details={"error_code": error.code, "status_code": status_code},
+                details={
+                    "error_code": error.code,
+                    "status_code": status_code,
+                    "user_id": getattr(request.state, "user_id", ""),
+                },
             )
             return JSONResponse(
                 status_code=status_code,
@@ -71,7 +75,10 @@ def register_exception_handlers(
         with session_context_factory(session_id):
             logger.warning(
                 "Request timed out",
-                details={"exception_type": type(exc).__name__},
+                details={
+                    "exception_type": type(exc).__name__,
+                    "user_id": getattr(request.state, "user_id", ""),
+                },
             )
             return JSONResponse(
                 status_code=504,
@@ -89,6 +96,7 @@ def register_exception_handlers(
             logger.exception(
                 "Unhandled error",
                 exception=exc,
+                details={"user_id": getattr(request.state, "user_id", "")},
             )
 
             return JSONResponse(

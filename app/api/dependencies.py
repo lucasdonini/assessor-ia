@@ -1,7 +1,9 @@
 from typing import Annotated, AsyncGenerator, cast
+from uuid import UUID
 
-from fastapi import Depends, Request
+from fastapi import Depends, Header, HTTPException, Request
 
+from app.application.models.user_context import UserContext
 from app.services.user_service import UserService
 
 from ..application.ports.agent_graph import AgentGraph
@@ -87,3 +89,14 @@ async def bind_session_logging_context(
 
 def get_user_service(request: Request) -> UserService:
     return UserService(request.app.state.user_repository)
+
+
+async def get_user_context(
+    user_id: Annotated[UUID, Header(alias="X-User-ID")],
+    service: Annotated[UserService, Depends(get_user_service)],
+    request: Request,
+) -> UserContext:
+    if not await service.exists(user_id):
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    request.state.user_id = str(user_id)
+    return UserContext(user_id=user_id)

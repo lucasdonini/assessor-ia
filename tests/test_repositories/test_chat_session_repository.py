@@ -18,6 +18,7 @@ from app.domain.model.chat_session import ChatSession, ChatSessionSummarized
 from app.infrastructure.mongodb.repositories.chat_session_repository import (
     BeanieChatSessionRepository,
 )
+from tests.user_identity import TEST_USER_ID
 
 
 def _update_result(matched_count: int) -> UpdateResult:
@@ -48,11 +49,16 @@ class TestBeanieChatSessionRepository:
     async def test_get_or_create_uses_atomic_upsert_and_maps_document(
         self, repository, fixed
     ):
-        session = ChatSession(session_id="session-123", started_at=fixed)
-        expected = ChatSession(session_id="session-123", started_at=fixed)
+        session = ChatSession(
+            session_id="session-123", started_at=fixed, user_id=TEST_USER_ID
+        )
+        expected = ChatSession(
+            session_id="session-123", started_at=fixed, user_id=TEST_USER_ID
+        )
         query = MagicMock()
 
         class DocumentStub:
+            user_id = TEST_USER_ID
             session_id = "session_id"
             started_at = "started_at"
             updated_at = "updated_at"
@@ -99,7 +105,9 @@ class TestBeanieChatSessionRepository:
             query.update = AsyncMock(return_value=_update_result(1))
             document_class.find_one.return_value = query
 
-            await repository.append_entry("session-123", message, fixed)
+            await repository.append_entry(
+                "session-123", message, fixed, user_id=TEST_USER_ID
+            )
 
         document_class.find_one.assert_called_once()
         query.update.assert_awaited_once()
@@ -123,7 +131,9 @@ class TestBeanieChatSessionRepository:
             document_class.find_one.side_effect = [query, _async_value(None)]
 
             with pytest.raises(ChatSessionNotFoundException):
-                await repository.append_entry("missing", message, fixed)
+                await repository.append_entry(
+                    "missing", message, fixed, user_id=TEST_USER_ID
+                )
 
     @pytest.mark.asyncio
     async def test_append_entry_raises_when_session_is_finalized(
@@ -144,7 +154,9 @@ class TestBeanieChatSessionRepository:
             ]
 
             with pytest.raises(ChatSessionAlreadyFinalizedException):
-                await repository.append_entry("session-123", message, fixed)
+                await repository.append_entry(
+                    "session-123", message, fixed, user_id=TEST_USER_ID
+                )
 
     @pytest.mark.asyncio
     async def test_append_entry_retries_once_after_concurrent_state_change(
@@ -167,7 +179,9 @@ class TestBeanieChatSessionRepository:
                 retry_query,
             ]
 
-            await repository.append_entry("session-123", message, fixed)
+            await repository.append_entry(
+                "session-123", message, fixed, user_id=TEST_USER_ID
+            )
 
         first_query.update.assert_awaited_once()
         retry_query.update.assert_awaited_once()
@@ -195,7 +209,9 @@ class TestBeanieChatSessionRepository:
             ]
 
             with pytest.raises(ChatSessionWriteConflictException):
-                await repository.append_entry("session-123", message, fixed)
+                await repository.append_entry(
+                    "session-123", message, fixed, user_id=TEST_USER_ID
+                )
 
         first_query.update.assert_awaited_once()
         retry_query.update.assert_awaited_once()
@@ -205,12 +221,16 @@ class TestBeanieChatSessionRepository:
         message = HumanMessage(content={"key": "value"})  # type: ignore[arg-type]
 
         with pytest.raises(ValidationError):
-            await repository.append_entry("session-123", message, fixed)
+            await repository.append_entry(
+                "session-123", message, fixed, user_id=TEST_USER_ID
+            )
 
     @pytest.mark.asyncio
     async def test_find_by_session_id_maps_document(self, repository, fixed):
         document = MagicMock()
-        expected = ChatSession(session_id="session-123", started_at=fixed)
+        expected = ChatSession(
+            session_id="session-123", started_at=fixed, user_id=TEST_USER_ID
+        )
 
         with (
             patch(
@@ -225,7 +245,9 @@ class TestBeanieChatSessionRepository:
         ):
             document_class.find_one = AsyncMock(return_value=document)
 
-            result = await repository.find_by_session_id("session-123")
+            result = await repository.find_by_session_id(
+                "session-123", user_id=TEST_USER_ID
+            )
 
         assert result == expected
         mapper.assert_called_once_with(document)
@@ -238,7 +260,9 @@ class TestBeanieChatSessionRepository:
         ) as document_class:
             document_class.find_one = AsyncMock(return_value=None)
 
-            result = await repository.find_by_session_id("missing")
+            result = await repository.find_by_session_id(
+                "missing", user_id=TEST_USER_ID
+            )
 
         assert result is None
 
@@ -252,7 +276,9 @@ class TestBeanieChatSessionRepository:
             query.update = AsyncMock()
             document_class.find_one.return_value = query
 
-            await repository.update_summary("session-123", "Resumo", fixed)
+            await repository.update_summary(
+                "session-123", "Resumo", fixed, user_id=TEST_USER_ID
+            )
 
         document_class.find_one.assert_called_once()
         query.update.assert_awaited_once()
@@ -267,6 +293,7 @@ class TestBeanieChatSessionRepository:
             session_id="session-123",
             summary="Resumo",
             started_at=fixed,
+            user_id=TEST_USER_ID,
         )
 
         with (
@@ -290,20 +317,23 @@ class TestBeanieChatSessionRepository:
             find_query.project.return_value = projected_query
             document_class.find.return_value = find_query
 
-            result = await repository.find_summaries(search=search, limit=5)
+            result = await repository.find_summaries(
+                search=search, limit=5, user_id=TEST_USER_ID
+            )
 
         assert result == [expected]
         find_filters = document_class.find.call_args.args
-        assert len(find_filters) == (2 if search else 1)
-        summary_filter = next(iter(find_filters[0].values()))
+        assert len(find_filters) == (3 if search else 2)
+        assert find_filters[0] == {"user_id": TEST_USER_ID}
+        summary_filter = next(iter(find_filters[1].values()))
         assert summary_filter == {"$nin": [None, ""]}
 
         if search:
-            regex_filter = next(iter(find_filters[1].values()))
+            regex_filter = next(iter(find_filters[2].values()))
             pattern = regex_filter["$regex"]
             assert isinstance(pattern, re.Pattern)
             assert pattern.pattern == search
             assert pattern.flags & re.IGNORECASE
-        projected_query.sort.assert_called_once_with(document_class.updated_at, -1)
+        projected_query.sort.assert_called_once_with("-updated_at")
         sorted_query.limit.assert_called_once_with(5)
         mapper.assert_called_once_with(document)

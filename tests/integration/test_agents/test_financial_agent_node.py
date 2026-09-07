@@ -9,6 +9,7 @@ from app.infrastructure.agents._core.schemas.specialist_output import FinancialO
 from app.infrastructure.agents._core.state import GraphState, GraphStateKeys
 from app.infrastructure.agents.financial import FinancialAgentNode
 from app.services.transaction_service import TransactionService
+from tests.user_identity import TEST_USER_ID
 
 pytestmark = [
     pytest.mark.integration,
@@ -116,7 +117,8 @@ async def test_calls_add_tool_and_persists_transaction(
 
     _tool_result(result, "call_add")
     persisted = await transaction_service.search_transactions(
-        TransactionQueryParams(source_text="novo almoço pelo agente")
+        TransactionQueryParams(source_text="novo almoço pelo agente"),
+        user_id=TEST_USER_ID,
     )
     assert len(persisted) == 1
     assert persisted[0].amount == 100.0

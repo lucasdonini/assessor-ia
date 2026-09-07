@@ -33,6 +33,7 @@ from app.infrastructure.agents.tools.total_balance import TotalBalanceTool
 from app.infrastructure.agents.tools.update_transaction import (
     UpdateTransactionTool,
 )
+from tests.user_identity import TEST_USER_ID
 
 pytestmark = [
     pytest.mark.integration,
@@ -155,7 +156,9 @@ class TestAddTransactionTool:
         assert isinstance(add_result, ToolSuccess)
 
         params = TransactionQueryParams(source_text="teste add tool", limit=50)
-        search_result = await transaction_service.search_transactions(params)
+        search_result = await transaction_service.search_transactions(
+            params, user_id=TEST_USER_ID
+        )
         assert len(search_result) >= 1
 
 

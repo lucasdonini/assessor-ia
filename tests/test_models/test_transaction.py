@@ -7,13 +7,13 @@ from app.infrastructure.agents.financial.schemas.transaction import (
     TransactionInput,
     TransactionOutput,
 )
+from tests.user_identity import TEST_USER_ID
 
 
 class TestTransaction:
     def test_create_minimal(self):
         t = Transaction(
-            amount=100.0,
-            source_text="Gastei 100 reais",
+            amount=100.0, source_text="Gastei 100 reais", user_id=TEST_USER_ID
         )
         assert t.amount == 100.0
         assert t.category == Category.OTHER
@@ -34,6 +34,7 @@ class TestTransaction:
             payment_method="cartão",
             occurred_at=dt,
             source_text="Gastei 250 no médico",
+            user_id=TEST_USER_ID,
         )
         assert t.amount == 250.75
         assert t.category == Category.HEALTH
@@ -49,6 +50,7 @@ class TestTransaction:
             category=Category.INVESTMENT,
             transaction_type=TransactionType.INCOME,
             source_text="Recebi 5000 de dividendos",
+            user_id=TEST_USER_ID,
         )
         assert t.transaction_type == TransactionType.INCOME
 
@@ -57,19 +59,19 @@ class TestTransaction:
             amount=300.0,
             transaction_type=TransactionType.TRANSFER,
             source_text="Transferi 300 reais",
+            user_id=TEST_USER_ID,
         )
         assert t.transaction_type == TransactionType.TRANSFER
 
     def test_amount_accepts_negative_value(self):
         t = Transaction(
-            amount=-50.0,
-            source_text="Valor negativo",
+            amount=-50.0, source_text="Valor negativo", user_id=TEST_USER_ID
         )
         assert t.amount == -50.0
 
     def test_source_text_required(self):
         with pytest.raises(TypeError):
-            Transaction(amount=100.0)
+            Transaction(amount=100.0, user_id=TEST_USER_ID)
 
     def test_domain_entity_roundtrip(self, sample_transaction):
         restored = Transaction(
@@ -83,6 +85,7 @@ class TestTransaction:
             updated_at=sample_transaction.updated_at,
             is_canceled=sample_transaction.is_canceled,
             id=sample_transaction.id,
+            user_id=TEST_USER_ID,
         )
         assert restored.amount == sample_transaction.amount
         assert restored.category == sample_transaction.category
@@ -98,7 +101,7 @@ class TestTransaction:
             source_text="Comprei comida",
             is_canceled=False,
         )
-        transaction = model.to_domain()
+        transaction = model.to_domain(user_id=TEST_USER_ID)
         assert transaction.amount == 99.90
         assert transaction.category == Category.FOOD
         assert transaction.transaction_type == TransactionType.EXPENSE

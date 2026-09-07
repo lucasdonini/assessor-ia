@@ -18,6 +18,7 @@ from app.infrastructure.agents.tools.update_transaction import (
     UpdateTransactionTool,
 )
 from app.services.transaction_service import TransactionService
+from tests.user_identity import TEST_USER_ID
 
 pytestmark = pytest.mark.asyncio
 
@@ -42,6 +43,7 @@ class TestUpdateTransactionTool:
             category=Category.FOOD,
             transaction_type=TransactionType.EXPENSE,
             source_text="original",
+            user_id=TEST_USER_ID,
         )
         tool.service.update_transaction = AsyncMock(return_value=updated)
 

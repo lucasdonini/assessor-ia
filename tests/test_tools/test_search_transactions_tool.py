@@ -15,6 +15,7 @@ from app.infrastructure.agents.tools.search_transaction import (
     SearchTransactionsTool,
 )
 from app.services.transaction_service import TransactionService
+from tests.user_identity import TEST_USER_ID
 
 pytestmark = pytest.mark.asyncio
 
@@ -35,6 +36,7 @@ class TestSearchTransactionsTool:
                 category=Category.FOOD,
                 transaction_type=TransactionType.EXPENSE,
                 source_text="test",
+                user_id=TEST_USER_ID,
             )
         ]
         tool.service.search_transactions = AsyncMock(return_value=mock_result)
@@ -69,6 +71,7 @@ class TestSearchTransactionsTool:
                 category=Category.OTHER,
                 transaction_type=TransactionType.EXPENSE,
                 source_text="source",
+                user_id=TEST_USER_ID,
             )
         ]
         tool.service.search_transactions = AsyncMock(return_value=mock_result)

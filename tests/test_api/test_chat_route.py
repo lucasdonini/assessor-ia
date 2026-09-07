@@ -7,10 +7,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_chat_session_service, get_graph
+from app.api.dependencies import get_chat_session_service, get_graph, get_user_context
 from app.api.middleware.exception_handler import register_exception_handlers
 from app.api.routes.chat import router
 from app.application.models.agent_execution import AgentExecutionResult
+from app.application.models.user_context import UserContext
 from app.application.ports.logger import Logger
 from app.domain.exception.chat_session import (
     ChatSessionAlreadyFinalizedException,
@@ -18,6 +19,8 @@ from app.domain.exception.chat_session import (
 from app.domain.model.chat_entry import AssistantMessage, ChatMessage, HumanMessage
 from app.domain.model.chat_session import ChatSession
 from app.infrastructure.logger import bind_session_context
+from app.infrastructure.session_coordinator import SessionCoordinator
+from tests.user_identity import TEST_USER_ID
 
 _SESSION_ID = "session-123"
 
@@ -39,7 +42,7 @@ class GraphStub:
     messages: list[tuple[HumanMessage, str]] = field(default_factory=list)
 
     async def execute_agent_flux(
-        self, message: HumanMessage, session_id: str
+        self, message: HumanMessage, session_id: str, *, context: UserContext
     ) -> AgentExecutionResult:
         self.messages.append((message, session_id))
         if self.error is not None:
@@ -54,19 +57,22 @@ class SessionServiceStub:
     ensured_sessions: list[str] = field(default_factory=list)
     save_message_error: Exception | None = None
 
-    async def get_or_create_session(self, session_id: str) -> ChatSession:
+    async def get_or_create_session(self, session_id: str, *, user_id) -> ChatSession:
         self.ensured_sessions.append(session_id)
         return ChatSession(
             session_id=session_id,
             started_at=datetime(2026, 8, 12, tzinfo=timezone.utc),
+            user_id=TEST_USER_ID,
         )
 
-    async def save_message(self, session_id: str, message: ChatMessage) -> None:
+    async def save_message(
+        self, session_id: str, message: ChatMessage, *, user_id
+    ) -> None:
         if self.save_message_error is not None:
             raise self.save_message_error
         self.messages.append((session_id, message))
 
-    async def save_error(self, session_id: str, error: Exception) -> None:
+    async def save_error(self, session_id: str, error: Exception, *, user_id) -> None:
         self.errors.append((session_id, error))
 
 
@@ -85,6 +91,8 @@ def client(
     graph: GraphStub, session_service: SessionServiceStub
 ) -> Generator[TestClient]:
     app = FastAPI()
+    app.state.session_coordinator = SessionCoordinator()
+    app.dependency_overrides[get_user_context] = lambda: UserContext(TEST_USER_ID)
     app.state.session_context_factory = bind_session_context
     register_exception_handlers(
         app,
@@ -205,3 +213,14 @@ def test_chat_rejects_message_for_finalized_session_without_persisting_error(
     assert session_service.messages == []
     assert session_service.errors == []
     assert session_service.ensured_sessions == [_SESSION_ID]
+
+
+def test_missing_user_rejected_before_chat_execution(client, graph, session_service):
+    from unittest.mock import AsyncMock
+
+    del client.app.dependency_overrides[get_user_context]
+    client.app.state.user_repository = AsyncMock()
+    response = client.post(f"/api/chat/{_SESSION_ID}", json={"message": "hello"})
+    assert response.status_code == 422
+    assert not graph.messages
+    assert not session_service.messages

@@ -7,13 +7,14 @@ export type SessionFinalizationResponse = {
 
 export async function finalizeSession(
   sessionId: string,
+  userId: string,
 ): Promise<SessionFinalizationResponse> {
   let apiResponse: Response
 
   try {
     apiResponse = await fetch(
       `${SESSION_ENDPOINT}/${encodeURIComponent(sessionId)}/finalize`,
-      { method: 'POST' },
+      { method: 'POST', headers: { 'X-User-ID': userId } },
     )
   } catch {
     throw new Error('Não foi possível conectar ao assistente.')

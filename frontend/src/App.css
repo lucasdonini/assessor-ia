@@ -578,3 +578,7 @@
   .console-page { padding: 0; }
   .console { height: 100dvh; border-radius: 0; }
 }
+
+.user-picker { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px 24px; }
+.user-picker select, .user-picker button { padding: 8px 12px; font: inherit; }
+.user-picker p { color: #b94040; }

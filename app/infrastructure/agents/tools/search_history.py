@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.application.ports.logger import LoggerFactory
 from app.domain.model.chat_session import ChatSessionSummarized
+from app.infrastructure.agents._core.user_context import get_user_context
 from app.services.chat_history_service import ChatHistoryService
 
 
@@ -42,7 +43,9 @@ class SearchHistoryTool(BaseTool):
             details={"tool": self.name, "search_length": len(search)},
         )
         try:
-            history = await self.service.fetch_history(search=search, limit=3)
+            history = await self.service.fetch_history(
+                search=search, limit=3, user_id=get_user_context().user_id
+            )
             return (
                 self._format_history(history)
                 if history
@@ -55,4 +58,4 @@ class SearchHistoryTool(BaseTool):
                 exception=e,
                 details={"tool": self.name},
             )
-            return f"Erro ao buscar as mensagens: {str(e)}"
+            return "Não foi possível consultar o histórico. Tente novamente."

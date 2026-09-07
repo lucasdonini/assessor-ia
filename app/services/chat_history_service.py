@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from app.application.ports.logger import Logger
 from app.application.repositories.chat_session_repository import (
     ChatSessionRepository,
@@ -12,7 +14,7 @@ class ChatHistoryService:
         self._logger = logger
 
     async def fetch_history(
-        self, search: str = "", limit: int = 3
+        self, search: str = "", limit: int = 3, *, user_id: UUID
     ) -> list[ChatSessionSummarized]:
         """
         Retrieves summaries of PREVIOUS (already concluded) sessions for a user.
@@ -29,14 +31,18 @@ class ChatHistoryService:
             details={"search_length": len(search), "limit": limit},
         )
 
-        return await self._repository.find_summaries(search=search, limit=limit)
+        return await self._repository.find_summaries(
+            search=search, limit=limit, user_id=user_id
+        )
 
-    async def fetch_entries(self, session_id: str) -> tuple[ChatEntry, ...]:
+    async def fetch_entries(
+        self, session_id: str, *, user_id: UUID
+    ) -> tuple[ChatEntry, ...]:
         self._logger.debug(
             "Fetching entries",
             details={"session_id": session_id[:8]},
         )
-        session = await self._repository.find_by_session_id(session_id)
+        session = await self._repository.find_by_session_id(session_id, user_id=user_id)
         entries = session.entries if session else tuple()
 
         self._logger.debug(

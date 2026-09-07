@@ -5,7 +5,7 @@ from uuid import UUID
 
 from beanie import UpdateResponse
 from beanie.operators import In, NotIn, Push, RegEx, Set, SetOnInsert
-from pymongo import DESCENDING
+from pymongo.errors import DuplicateKeyError
 from pymongo.results import UpdateResult
 
 from app.domain.exception.chat_session import (
@@ -27,25 +27,35 @@ from app.infrastructure.mongodb.mappers.chat_session_mapper import (
 
 class BeanieChatSessionRepository:
     async def get_or_create(self, session: ChatSession) -> ChatSession:
-        document = await ChatSessionDocument.find_one(
-            ChatSessionDocument.session_id == session.session_id
-        ).update(
-            SetOnInsert(
-                {
-                    ChatSessionDocument.session_id: session.session_id,
-                    ChatSessionDocument.user_id: session.user_id,
-                    ChatSessionDocument.updated_at: session.updated_at,
-                    ChatSessionDocument.started_at: session.started_at,
-                    ChatSessionDocument.summary: session.summary,
-                    ChatSessionDocument.entries: [
-                        ChatSessionMapper.model_entry_to_document(entry)
-                        for entry in session.entries
-                    ],
-                }
-            ),
-            response_type=UpdateResponse.NEW_DOCUMENT,
-            upsert=True,
-        )
+        try:
+            document = await ChatSessionDocument.find_one(
+                ChatSessionDocument.user_id == session.user_id,
+                ChatSessionDocument.session_id == session.session_id,
+            ).update(
+                SetOnInsert(
+                    {
+                        ChatSessionDocument.session_id: session.session_id,
+                        ChatSessionDocument.user_id: session.user_id,
+                        ChatSessionDocument.updated_at: session.updated_at,
+                        ChatSessionDocument.started_at: session.started_at,
+                        ChatSessionDocument.summary: session.summary,
+                        ChatSessionDocument.entries: [
+                            ChatSessionMapper.model_entry_to_document(entry)
+                            for entry in session.entries
+                        ],
+                    }
+                ),
+                response_type=UpdateResponse.NEW_DOCUMENT,
+                upsert=True,
+            )
+        except DuplicateKeyError:
+            # Concurrent inserts and foreign sessions cannot change ownership.
+            existing = await self.find_by_session_id(
+                session.session_id, user_id=session.user_id
+            )
+            if existing is None:
+                raise ChatSessionNotFoundException(session.session_id) from None
+            return existing
         assert isinstance(document, ChatSessionDocument)
         if document.user_id != session.user_id:
             raise ChatSessionNotFoundException(session.session_id)
@@ -144,7 +154,7 @@ class BeanieChatSessionRepository:
         documents = await (
             ChatSessionDocument.find(*find_filter)
             .project(ChatSessionSummaryProjection)
-            .sort(ChatSessionDocument.updated_at, DESCENDING)  # type: ignore[arg-type]
+            .sort("-updated_at")
             .limit(limit)
             .to_list()
         )

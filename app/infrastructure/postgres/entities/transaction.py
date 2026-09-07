@@ -21,6 +21,10 @@ class TransactionORM(Base):
         server_default=sa.func.gen_random_uuid(),
     )
 
+    user_id: Mapped[UUID] = mapped_column(
+        pg.UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=False
+    )
+
     amount: Mapped[float] = mapped_column(sa.Numeric(14, 2), nullable=False)
 
     category: Mapped[Category] = mapped_column(
@@ -59,6 +63,10 @@ class TransactionORM(Base):
     )
 
     __table_args__ = (
+        sa.Index("idx_transactions_user_time", "user_id", "occurred_at"),
+        sa.Index(
+            "idx_transactions_user_category_time", "user_id", "category", "occurred_at"
+        ),
         sa.Index(
             "idx_transactions_occurred_at",
             "occurred_at",

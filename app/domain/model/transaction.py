@@ -28,6 +28,7 @@ class TransactionType(str, Enum):
 
 @dataclass(slots=True)
 class Transaction:
+    user_id: UUID
     amount: float
     source_text: str
     category: Category = Category.OTHER

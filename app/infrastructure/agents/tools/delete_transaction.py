@@ -9,6 +9,7 @@ from app.application.models.transaction_update import (
     UpdateTransactionQuery,
 )
 from app.application.ports.logger import LoggerFactory
+from app.infrastructure.agents._core.user_context import get_user_context
 from app.infrastructure.agents.financial.schemas.tool_response import (
     ToolFailure,
     ToolResponse,
@@ -64,7 +65,9 @@ class DeleteTransactionTool(BaseTool):
         params = UpdateTransactionParams(query=query, is_canceled=True)
         response: _DeleteTransactionResponse
         try:
-            await self.service.update_transaction(params)
+            await self.service.update_transaction(
+                params, user_id=get_user_context().user_id
+            )
             logger.debug(
                 "Tool succeeded",
                 details={"tool": self.name, "deleted": True},

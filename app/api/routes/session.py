@@ -7,13 +7,15 @@ from app.services.chat_session_service import ChatSessionService
 
 from ..dependencies import (
     bind_session_logging_context,
+    coordinate_session,
     get_chat_session_service,
     get_user_context,
 )
 from ..schemas.session import SessionFinalizationResponse
 
 router = APIRouter(
-    prefix="/session", dependencies=[Depends(bind_session_logging_context)]
+    prefix="/session",
+    dependencies=[Depends(bind_session_logging_context), Depends(coordinate_session)],
 )
 
 

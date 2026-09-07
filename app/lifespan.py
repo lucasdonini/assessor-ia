@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from app.infrastructure.postgres.repositories.user_repository import (
     SQLAlchemyUserRepository,
 )
+from app.infrastructure.session_coordinator import SessionCoordinator
 
 from .infrastructure.agents import build_agent_graph
 from .infrastructure.clock import SystemClock
@@ -79,6 +80,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         execution_timeout_seconds=settings.agent_execution_timeout_seconds,
     )
 
+    app.state.session_coordinator = SessionCoordinator()
     app.state.graph = graph
     app.state.session_context_factory = bind_session_context
 

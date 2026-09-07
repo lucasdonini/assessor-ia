@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import Depends, Header, HTTPException, Request
 
 from app.application.models.user_context import UserContext
+from app.infrastructure.session_coordinator import SessionCoordinator
 from app.services.user_service import UserService
 
 from ..application.ports.agent_graph import AgentGraph
@@ -100,3 +101,13 @@ async def get_user_context(
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
     request.state.user_id = str(user_id)
     return UserContext(user_id=user_id)
+
+
+async def coordinate_session(
+    request: Request,
+    session_id: str,
+    context: Annotated[UserContext, Depends(get_user_context)],
+) -> AsyncGenerator[None, None]:
+    coordinator: SessionCoordinator = request.app.state.session_coordinator
+    async with coordinator.hold(session_id):
+        yield

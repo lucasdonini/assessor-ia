@@ -1,6 +1,7 @@
 import re
 from datetime import datetime
 from typing import Mapping
+from uuid import UUID
 
 from beanie import UpdateResponse
 from beanie.operators import In, NotIn, Push, RegEx, Set, SetOnInsert
@@ -32,6 +33,7 @@ class BeanieChatSessionRepository:
             SetOnInsert(
                 {
                     ChatSessionDocument.session_id: session.session_id,
+                    ChatSessionDocument.user_id: session.user_id,
                     ChatSessionDocument.updated_at: session.updated_at,
                     ChatSessionDocument.started_at: session.started_at,
                     ChatSessionDocument.summary: session.summary,
@@ -45,6 +47,8 @@ class BeanieChatSessionRepository:
             upsert=True,
         )
         assert isinstance(document, ChatSessionDocument)
+        if document.user_id != session.user_id:
+            raise ChatSessionNotFoundException(session.session_id)
         return ChatSessionMapper.document_to_model(document)
 
     async def append_entry(
@@ -54,9 +58,11 @@ class BeanieChatSessionRepository:
         updated_at: datetime,
         *,
         is_retry: bool = False,
+        user_id: UUID,
     ) -> None:
         document_entry = ChatSessionMapper.model_entry_to_document(entry)
         result = await ChatSessionDocument.find_one(
+            ChatSessionDocument.user_id == user_id,
             ChatSessionDocument.session_id == session_id,
             In(ChatSessionDocument.summary, [None, ""]),
         ).update(
@@ -76,7 +82,8 @@ class BeanieChatSessionRepository:
             return
 
         session = await ChatSessionDocument.find_one(
-            ChatSessionDocument.session_id == session_id
+            ChatSessionDocument.user_id == user_id,
+            ChatSessionDocument.session_id == session_id,
         )
         if not session:
             raise ChatSessionNotFoundException(session_id)
@@ -94,24 +101,26 @@ class BeanieChatSessionRepository:
             entry=entry,
             updated_at=updated_at,
             is_retry=True,
+            user_id=user_id,
         )
 
-    async def find_by_session_id(self, session_id: str) -> ChatSession | None:
+    async def find_by_session_id(
+        self, session_id: str, *, user_id: UUID
+    ) -> ChatSession | None:
         document = await ChatSessionDocument.find_one(
-            ChatSessionDocument.session_id == session_id
+            ChatSessionDocument.user_id == user_id,
+            ChatSessionDocument.session_id == session_id,
         )
         if document is None:
             return None
         return ChatSessionMapper.document_to_model(document)
 
     async def update_summary(
-        self,
-        session_id: str,
-        summary: str,
-        updated_at: datetime,
+        self, session_id: str, summary: str, updated_at: datetime, *, user_id: UUID
     ) -> None:
         await ChatSessionDocument.find_one(
-            ChatSessionDocument.session_id == session_id
+            ChatSessionDocument.user_id == user_id,
+            ChatSessionDocument.session_id == session_id,
         ).update(
             Set(
                 {
@@ -122,11 +131,12 @@ class BeanieChatSessionRepository:
         )
 
     async def find_summaries(
-        self,
-        search: str = "",
-        limit: int = 3,
+        self, search: str = "", limit: int = 3, *, user_id: UUID
     ) -> list[ChatSessionSummarized]:
-        find_filter: list[Mapping] = [NotIn(ChatSessionDocument.summary, [None, ""])]
+        find_filter: list[Mapping] = [
+            ChatSessionDocument.user_id == user_id,
+            NotIn(ChatSessionDocument.summary, [None, ""]),
+        ]
         if search:
             pattern = re.compile(pattern=search, flags=re.IGNORECASE)
             find_filter.append(RegEx(ChatSessionDocument.summary, pattern=pattern))

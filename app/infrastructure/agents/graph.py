@@ -14,6 +14,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Overwrite
 
 from app.application.models.agent_execution import AgentExecutionResult
+from app.application.models.user_context import UserContext
 from app.application.ports.logger import (
     InteractionIncrementer,
     LoggerFactory,
@@ -24,6 +25,7 @@ from app.domain.model.chat_entry import AssistantMessage, HumanMessage
 from ._core.contracts.agent_node import AgentNode
 from ._core.specialist import SpecialistRegistration
 from ._core.state import GraphState, GraphStateKeys
+from ._core.user_context import bind_user_context
 
 
 class AgentGraphImpl:
@@ -154,10 +156,12 @@ class AgentGraphImpl:
         self,
         user_input: HumanMessage,
         session_id: str,
+        *,
+        context: UserContext,
     ) -> AgentExecutionResult:
         self._interaction_incrementer()
         trace_id = str(uuid.uuid4())
-        with self._trace_context_factory(trace_id):
+        with self._trace_context_factory(trace_id), bind_user_context(context):
             message = LangGraphHumanMessage(id=trace_id, content=user_input.content)
             self._logger.info(
                 "User input received",
@@ -176,7 +180,11 @@ class AgentGraphImpl:
                 async with asyncio.timeout(self._execution_timeout_seconds):
                     final_state_raw = await self._agent_flux.ainvoke(
                         initial_state,
-                        config={"configurable": {"thread_id": session_id}},
+                        config={
+                            "configurable": {
+                                "thread_id": f"{context.user_id}:{session_id}"
+                            }
+                        },
                     )
             except TimeoutError:
                 self._logger.error(

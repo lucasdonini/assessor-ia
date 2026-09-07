@@ -196,7 +196,6 @@ function Chat({ userId }: { userId: string }) {
               : 'Pronto para conversar.')
 
   return (
-    <main className="console-page">
       <section className="console" aria-labelledby="console-title">
         <header className="console__header">
           <div className="header__identity">
@@ -341,7 +340,6 @@ function Chat({ userId }: { userId: string }) {
           </p>
         </footer>
       </section>
-    </main>
   )
 }
 
@@ -389,9 +387,10 @@ function App() {
     } finally { setCreating(false) }
   }
 
-  return <>
+  return <main className="console-page">
+    <div className="console-shell">
     <section className="user-picker" aria-label="Usuários de demonstração">
-      <label htmlFor="active-user">Usuário</label>
+      <label className="header__label" htmlFor="active-user">Usuário</label>
       <select id="active-user" value={userId} disabled={loading || creating}
         onChange={(event) => selectUser(event.target.value)}>
         {!users.length && <option value="">{loading ? 'Carregando…' : 'Crie um usuário'}</option>}
@@ -399,14 +398,22 @@ function App() {
           Usuário {index + 1} · {user.id.slice(0, 8)}
         </option>)}
       </select>
-      <button type="button" onClick={handleCreateUser} disabled={loading || creating}>
+      <button className="header__reset user-picker__create" type="button" onClick={handleCreateUser} disabled={loading || creating}>
+        <span aria-hidden="true">+</span>
         {creating ? 'Criando…' : 'Criar usuário'}
       </button>
-      {error && <><p role="alert">{error}</p>
-        <button type="button" onClick={() => setReload((value) => value + 1)}>Recarregar usuários</button></>}
+      {error && <><p className="console__error user-picker__error" role="alert">{error}</p>
+        <button className="header__reset" type="button" onClick={() => setReload((value) => value + 1)}>Recarregar usuários</button></>}
     </section>
-    {userId && <Chat key={userId} userId={userId} />}
-  </>
+    {userId ? <Chat key={userId} userId={userId} /> : (
+      <section className="user-welcome" aria-label="Boas-vindas">
+        <h1 className="header__title">assistente<span className="header__cursor">_</span></h1>
+        <p className="empty__eyebrow">{loading ? '// conectando' : '// vamos começar'}</p>
+        <p className="empty__text">{loading ? 'Carregando seus usuários…' : 'Crie um usuário para começar sua conversa.'}</p>
+      </section>
+    )}
+    </div>
+  </main>
 }
 
 export default App

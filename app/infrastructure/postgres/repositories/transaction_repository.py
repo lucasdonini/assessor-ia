@@ -1,5 +1,6 @@
 import logging
 from datetime import date, datetime, time, timedelta
+from uuid import UUID
 
 from sqlalchemy import ScalarSelect, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -27,6 +28,7 @@ class SQLAlchemyTransactionRepository:
     def _orm_to_model(self, orm: TransactionORM) -> Transaction:
         return Transaction(
             id=orm.id,
+            user_id=orm.user_id,
             amount=float(orm.amount),
             category=orm.category,
             transaction_type=orm.transaction_type,
@@ -41,6 +43,7 @@ class SQLAlchemyTransactionRepository:
     def _model_to_orm(self, model: Transaction) -> TransactionORM:
         data = {
             "amount": model.amount,
+            "user_id": model.user_id,
             "category": model.category,
             "transaction_type": model.transaction_type,
             "description": model.description,
@@ -60,10 +63,13 @@ class SQLAlchemyTransactionRepository:
         self,
         transaction_type: TransactionType,
         period_end: datetime | None,
+        *,
+        user_id: UUID,
     ) -> ScalarSelect[float]:
         stmt = select(func.coalesce(func.sum(TransactionORM.amount), 0)).where(
             TransactionORM.transaction_type == transaction_type,
             ~TransactionORM.is_canceled,
+            TransactionORM.user_id == user_id,
         )
 
         if period_end:
@@ -71,7 +77,7 @@ class SQLAlchemyTransactionRepository:
 
         return stmt.scalar_subquery()
 
-    async def get_balance(self, day: date | None = None) -> float:
+    async def get_balance(self, day: date | None = None, *, user_id: UUID) -> float:
         "Returns the balance of the user at the end of the requested date"
         period_end = (
             datetime.combine(day + timedelta(days=1), time.min) if day else None
@@ -80,11 +86,13 @@ class SQLAlchemyTransactionRepository:
         income = self._build_sum_amounts_of_transaction_type_subquery(
             transaction_type=TransactionType.INCOME,
             period_end=period_end,
+            user_id=user_id,
         )
 
         expenses = self._build_sum_amounts_of_transaction_type_subquery(
             transaction_type=TransactionType.EXPENSE,
             period_end=period_end,
+            user_id=user_id,
         )
 
         stmt = select(income - expenses)
@@ -92,7 +100,9 @@ class SQLAlchemyTransactionRepository:
         async with self._session_factory() as session:
             return float(await session.scalar(stmt) or 0)
 
-    async def find(self, params: TransactionQueryParams) -> list[Transaction]:
+    async def find(
+        self, params: TransactionQueryParams, *, user_id: UUID
+    ) -> list[Transaction]:
         logger.info(
             "Searching transactions",
             extra={"details": {"params": params.model_dump()}},
@@ -101,7 +111,7 @@ class SQLAlchemyTransactionRepository:
         if params.limit is not None and params.limit <= 0:
             return []
 
-        stmt = select(TransactionORM)
+        stmt = select(TransactionORM).where(TransactionORM.user_id == user_id)
         if params.source_text:
             stmt = stmt.where(
                 TransactionORM.source_text.ilike(f"%{params.source_text}%")
@@ -149,7 +159,11 @@ class SQLAlchemyTransactionRepository:
         )
         return result
 
-    async def add_transaction(self, transaction: Transaction) -> Transaction:
+    async def add_transaction(
+        self, transaction: Transaction, *, user_id: UUID
+    ) -> Transaction:
+        if transaction.user_id != user_id:
+            raise ValueError("Transaction owner does not match execution context")
         orm = self._model_to_orm(transaction)
         async with self._session_factory() as session:
             session.add(orm)
@@ -158,14 +172,14 @@ class SQLAlchemyTransactionRepository:
         return self._orm_to_model(orm)
 
     async def update_transaction(
-        self, params: UpdateTransactionParams
+        self, params: UpdateTransactionParams, *, user_id: UUID
     ) -> Transaction | None:
         logger.info(
             "Updating transaction",
             extra={"details": {"params": params.model_dump()}},
         )
 
-        stmt = select(TransactionORM)
+        stmt = select(TransactionORM).where(TransactionORM.user_id == user_id)
         if id := params.query.id:
             stmt = stmt.where(TransactionORM.id == id)
         elif (match_text := params.query.match_text) and (

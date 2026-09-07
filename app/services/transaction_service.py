@@ -1,4 +1,5 @@
 from datetime import date
+from uuid import UUID
 
 from app.application.exceptions import (
     MissingTransactionReferenceError,
@@ -21,19 +22,19 @@ class TransactionService:
         self._repository = repository
         self._logger = logger
 
-    async def calculate_total_balance(self) -> float:
+    async def calculate_total_balance(self, *, user_id: UUID) -> float:
         self._logger.debug("Calculating total balance")
-        return await self._repository.get_balance()
+        return await self._repository.get_balance(user_id=user_id)
 
-    async def calculate_daily_balance(self, day: date) -> float:
+    async def calculate_daily_balance(self, day: date, *, user_id: UUID) -> float:
         self._logger.debug(
             "Calculating daily balance",
             details={"day": str(day)},
         )
-        return await self._repository.get_balance(day)
+        return await self._repository.get_balance(day, user_id=user_id)
 
     async def search_transactions(
-        self, params: TransactionQueryParams
+        self, params: TransactionQueryParams, *, user_id: UUID
     ) -> list[Transaction]:
         self._logger.debug(
             "Searching transactions",
@@ -45,9 +46,11 @@ class TransactionService:
                 )
             },
         )
-        return await self._repository.find(params)
+        return await self._repository.find(params, user_id=user_id)
 
-    async def add_transaction(self, transaction: Transaction) -> Transaction:
+    async def add_transaction(
+        self, transaction: Transaction, *, user_id: UUID
+    ) -> Transaction:
         self._logger.debug(
             "Adding transaction",
             details={
@@ -55,9 +58,11 @@ class TransactionService:
                 "transaction_type": transaction.transaction_type.value,
             },
         )
-        return await self._repository.add_transaction(transaction)
+        return await self._repository.add_transaction(transaction, user_id=user_id)
 
-    async def update_transaction(self, params: UpdateTransactionParams) -> Transaction:
+    async def update_transaction(
+        self, params: UpdateTransactionParams, *, user_id: UUID
+    ) -> Transaction:
         self._logger.debug(
             "Updating transaction",
             details={
@@ -77,7 +82,7 @@ class TransactionService:
         if not params.has_update:
             raise NoTransactionChangesError
 
-        transaction = await self._repository.update_transaction(params)
+        transaction = await self._repository.update_transaction(params, user_id=user_id)
         if transaction is None:
             raise TransactionNotFoundError
         return transaction

@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.application.exceptions import ApplicationError
 from app.application.ports.logger import LoggerFactory
+from app.infrastructure.agents._core.user_context import get_user_context
 from app.infrastructure.agents.financial.schemas.tool_response import (
     ToolFailure,
     ToolResponse,
@@ -42,7 +43,9 @@ class TotalBalanceTool(BaseTool):
             details={"tool": self.name},
         )
         try:
-            balance = await self.service.calculate_total_balance()
+            balance = await self.service.calculate_total_balance(
+                user_id=get_user_context().user_id
+            )
             logger.debug(
                 "Tool succeeded",
                 details={"tool": self.name},

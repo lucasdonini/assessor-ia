@@ -8,6 +8,7 @@ from app.application.models.transaction_query import (
     TransactionQueryParams,
 )
 from app.application.ports.logger import LoggerFactory
+from app.infrastructure.agents._core.user_context import get_user_context
 from app.infrastructure.agents.financial.schemas.tool_response import (
     ToolFailure,
     ToolResponse,
@@ -66,7 +67,9 @@ class SearchTransactionsTool(BaseTool):
             },
         )
         try:
-            result = await self.service.search_transactions(params)
+            result = await self.service.search_transactions(
+                params, user_id=get_user_context().user_id
+            )
             logger.debug(
                 "Tool succeeded",
                 details={"tool": self.name, "count": len(result)},

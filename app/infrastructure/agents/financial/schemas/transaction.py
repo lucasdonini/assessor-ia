@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -46,8 +47,8 @@ class TransactionInput(BaseModel):
         ),
     )
 
-    def to_domain(self) -> Transaction:
-        return Transaction(**self.model_dump())
+    def to_domain(self, *, user_id: UUID) -> Transaction:
+        return Transaction(user_id=user_id, **self.model_dump())
 
 
 class TransactionOutput(BaseModel):

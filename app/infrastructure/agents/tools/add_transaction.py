@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.application.exceptions import ApplicationError
 from app.application.ports.logger import LoggerFactory
+from app.infrastructure.agents._core.user_context import get_user_context
 from app.infrastructure.agents.financial.schemas.tool_response import (
     ToolFailure,
     ToolResponse,
@@ -51,7 +52,10 @@ class AddTransactionTool(BaseTool):
             },
         )
         try:
-            added = await self.service.add_transaction(transaction.to_domain())
+            added = await self.service.add_transaction(
+                transaction.to_domain(user_id=get_user_context().user_id),
+                user_id=get_user_context().user_id,
+            )
             logger.debug(
                 "Tool succeeded",
                 details={"tool": self.name, "added": True},

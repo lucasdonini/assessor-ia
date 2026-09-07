@@ -2,6 +2,8 @@ from typing import Annotated, AsyncGenerator, cast
 
 from fastapi import Depends, Request
 
+from app.services.user_service import UserService
+
 from ..application.ports.agent_graph import AgentGraph
 from ..application.ports.clock import Clock
 from ..application.ports.logger import LoggerFactory, SessionContextFactory
@@ -81,3 +83,7 @@ async def bind_session_logging_context(
     request.state.session_id = session_id
     with session_context_factory(session_id):
         yield
+
+
+def get_user_service(request: Request) -> UserService:
+    return UserService(request.app.state.user_repository)

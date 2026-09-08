@@ -22,6 +22,9 @@ from .infrastructure.mongodb.client import MongoManager
 from .infrastructure.mongodb.repositories.chat_session_repository import (
     BeanieChatSessionRepository,
 )
+from .infrastructure.mongodb.repositories.user_profile_repository import (
+    BeanieUserProfileRepository,
+)
 from .infrastructure.postgres.pg_connection import PostgresManager
 from .infrastructure.postgres.repositories.transaction_repository import (
     SQLAlchemyTransactionRepository,
@@ -34,11 +37,15 @@ from .infrastructure.vectorstore.ingestors.faq_ingestor import QDrantFaqIngestor
 from .infrastructure.vectorstore.repositories.faq_embedding_repository import (
     QDrantFaqSearch,
 )
+from .infrastructure.vectorstore.repositories.profile_preferences_index import (
+    QDrantProfilePreferencesIndex,
+)
 from .infrastructure.vectorstore.repositories.session_history_index import (
     QDrantSessionHistoryIndex,
 )
 from .services.chat_history_service import ChatHistoryService
 from .services.transaction_service import TransactionService
+from .services.user_profile_service import UserProfileService
 
 
 @asynccontextmanager
@@ -61,6 +68,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     mongo_manager = MongoManager(settings=settings)
     await mongo_manager.init_database()
+    profile_index = QDrantProfilePreferencesIndex(
+        client=qdrant_client,
+        embeddings=qdrant_embeddings,
+        dimensions=settings.embedding_dimmensions,
+    )
+    await profile_index.initialize()
+    app.state.profile_service = UserProfileService(
+        repository=BeanieUserProfileRepository(),
+        index=profile_index,
+        logger=create_logger(UserProfileService.__module__),
+    )
     chat_session_repository = BeanieChatSessionRepository()
     postgres_manager = PostgresManager(settings.postgres_url.get_secret_value())
     app.state.user_repository = SQLAlchemyUserRepository(

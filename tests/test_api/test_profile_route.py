@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
@@ -13,6 +14,8 @@ from tests.user_identity import TEST_USER_ID
 @pytest.fixture
 def client() -> Generator[TestClient]:
     app = FastAPI()
+    app.state.profile_service = AsyncMock()
+    app.state.profile_service.save.side_effect = lambda profile: profile
     app.dependency_overrides[get_user_context] = lambda: UserContext(TEST_USER_ID)
     app.include_router(router, prefix="/api")
 

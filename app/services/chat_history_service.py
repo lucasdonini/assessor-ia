@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from app.application.ports.logger import Logger
+from app.application.ports.session_history_index import SessionHistoryIndex
 from app.application.repositories.chat_session_repository import (
     ChatSessionRepository,
 )
@@ -9,29 +10,31 @@ from app.domain.model.chat_session import ChatSessionSummarized
 
 
 class ChatHistoryService:
-    def __init__(self, repository: ChatSessionRepository, logger: Logger) -> None:
+    def __init__(
+        self,
+        repository: ChatSessionRepository,
+        logger: Logger,
+        history_index: SessionHistoryIndex,
+    ) -> None:
         self._repository = repository
         self._logger = logger
+        self._history_index = history_index
 
     async def fetch_history(
         self, search: str = "", limit: int = 3, *, user_id: UUID
     ) -> list[ChatSessionSummarized]:
-        """
-        Retrieves summaries of PREVIOUS (already concluded) sessions for a user.
-
-        Strategy: first checks the summaries. If a search term is provided,
-        filters by it; otherwise, returns the most recent sessions. Full
-        messages are NOT included here.
-
-        search      : optional term to filter relevant summaries
-        limit       : maximum number of sessions returned (most recent first)
-        """
+        """Find concluded sessions by relevance. Blank searches do no I/O."""
+        search = search.strip()
+        if not search:
+            return []
+        if limit <= 0:
+            raise ValueError("History result limit must be positive")
         self._logger.debug(
             "Fetching history",
             details={"search_length": len(search), "limit": limit},
         )
 
-        return await self._repository.find_summaries(
+        return await self._history_index.search(
             search=search, limit=limit, user_id=user_id
         )
 

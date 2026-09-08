@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, create_autospec
 import pytest
 
 from app.application.ports.logger import Logger
+from app.application.ports.session_history_index import SessionHistoryIndex
 from app.application.repositories.chat_session_repository import (
     ChatSessionRepository,
 )
@@ -23,10 +24,11 @@ class TestChatHistoryService:
         return ChatHistoryService(
             repository=repository,
             logger=MagicMock(spec=Logger),
+            history_index=create_autospec(SessionHistoryIndex, instance=True),
         )
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("search", ["", "transporte"])
+    @pytest.mark.parametrize("search", ["transporte", "  transporte  "])
     async def test_fetch_history(self, service, repository, search):
         fixed = datetime(2026, 8, 12, 15, 0, tzinfo=timezone.utc)
         summaries = [
@@ -37,14 +39,32 @@ class TestChatHistoryService:
                 user_id=TEST_USER_ID,
             )
         ]
-        repository.find_summaries.return_value = summaries
+        service._history_index.search.return_value = summaries
 
         result = await service.fetch_history(search=search, user_id=TEST_USER_ID)
 
         assert result == summaries
-        repository.find_summaries.assert_awaited_once_with(
-            search=search, limit=3, user_id=TEST_USER_ID
+        service._history_index.search.assert_awaited_once_with(
+            search=search.strip(), limit=3, user_id=TEST_USER_ID
         )
+        repository.find_summaries.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("search", ["", "  ", "\n\t"])
+    async def test_blank_search_does_no_io(
+        self, service: ChatHistoryService, repository: MagicMock, search: str
+    ) -> None:
+        assert await service.fetch_history(search, user_id=TEST_USER_ID) == []
+        service._history_index.search.assert_not_awaited()
+        assert repository.mock_calls == []
+
+    @pytest.mark.asyncio
+    async def test_no_matches_has_no_recent_sessions_fallback(
+        self, service: ChatHistoryService, repository: MagicMock
+    ) -> None:
+        service._history_index.search.return_value = []
+        assert await service.fetch_history("curso", user_id=TEST_USER_ID) == []
+        assert repository.mock_calls == []
 
     @pytest.mark.asyncio
     async def test_fetch_entries_found(self, service, repository):

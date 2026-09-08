@@ -10,6 +10,7 @@ from app.services.user_service import UserService
 from ..application.ports.agent_graph import AgentGraph
 from ..application.ports.clock import Clock
 from ..application.ports.logger import LoggerFactory, SessionContextFactory
+from ..application.ports.session_history_index import SessionHistoryIndex
 from ..application.ports.text_generator import TextGenerator
 from ..application.repositories.chat_session_repository import ChatSessionRepository
 from ..infrastructure.clock import SystemClock
@@ -60,7 +61,12 @@ def get_graph(request: Request) -> AgentGraph:
     return graph
 
 
+def get_history_index(request: Request) -> SessionHistoryIndex:
+    return cast(SessionHistoryIndex, request.app.state.history_index)
+
+
 def get_chat_session_service(
+    history_index: Annotated[SessionHistoryIndex, Depends(get_history_index)],
     clock: Annotated[Clock, Depends(_get_clock)],
     logger_factory: Annotated[LoggerFactory, Depends(_get_logger_factory)],
     session_repository: Annotated[
@@ -72,6 +78,7 @@ def get_chat_session_service(
 ) -> ChatSessionService:
     logger = logger_factory(ChatSessionService.__module__)
     return ChatSessionService(
+        history_index=history_index,
         service=session_summary_service,
         repository=session_repository,
         logger=logger,

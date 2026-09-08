@@ -28,9 +28,14 @@ from .infrastructure.postgres.repositories.transaction_repository import (
 )
 from .infrastructure.settings import settings
 from .infrastructure.text_generator import LLMTextGenerator
+from .infrastructure.vectorstore.client import qdrant_client
+from .infrastructure.vectorstore.embeddings import qdrant_embeddings
 from .infrastructure.vectorstore.ingestors.faq_ingestor import QDrantFaqIngestor
 from .infrastructure.vectorstore.repositories.faq_embedding_repository import (
     QDrantFaqSearch,
+)
+from .infrastructure.vectorstore.repositories.session_history_index import (
+    QDrantSessionHistoryIndex,
 )
 from .services.chat_history_service import ChatHistoryService
 from .services.transaction_service import TransactionService
@@ -40,6 +45,16 @@ from .services.transaction_service import TransactionService
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     setup_logger()
     settings.validate_envs()
+
+    history_index = QDrantSessionHistoryIndex(
+        client=qdrant_client,
+        embeddings=qdrant_embeddings,
+        collection_name=settings.history_collection_name,
+        dimensions=settings.embedding_dimmensions,
+        logger=create_logger(QDrantSessionHistoryIndex.__module__),
+    )
+    await history_index.validate_collection()
+    app.state.history_index = history_index
 
     faq_ingestor = QDrantFaqIngestor(logger_factory=create_logger)
     faq_ingestor.ingest()
@@ -62,6 +77,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger=create_logger(TransactionService.__module__),
     )
     chat_history_service = ChatHistoryService(
+        history_index=history_index,
         repository=chat_session_repository,
         logger=create_logger(ChatHistoryService.__module__),
     )

@@ -59,6 +59,7 @@ async def test_mongodb_owner_filters_and_immutable_session_owner():
                 )
             await repository.update_summary("second", "intrusion", now, user_id=first)
             service = ChatSessionService(
+                history_index=AsyncMock(),
                 service=AsyncMock(),
                 repository=repository,
                 logger=MagicMock(),

@@ -49,7 +49,7 @@ async def _assert_financial_chain(
     graph: AgentGraphImpl, session_id: str, expected_balance: str
 ) -> None:
     snapshot = await graph._agent_flux.aget_state(
-        {"configurable": {"thread_id": session_id}}
+        {"configurable": {"thread_id": f"{TEST_USER_ID}:{session_id}"}}
     )
     assert snapshot.values["called_agents"] == [
         "input_guardrail",

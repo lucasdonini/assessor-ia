@@ -12,6 +12,7 @@ from pymongo.monitoring import (
 
 from ..settings import PydanticSettings
 from .entities.chat_session import ChatSessionDocument
+from .entities.user_profile import UserProfileDocument
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,6 @@ class MongoManager:
             register(LoggingMongoCommandListener())
         await init_beanie(
             database=self._client[self._settings.mongodb_dbname.get_secret_value()],
-            document_models=[ChatSessionDocument],
+            document_models=[ChatSessionDocument, UserProfileDocument],
         )
         logger.debug("MongoDB initialized")

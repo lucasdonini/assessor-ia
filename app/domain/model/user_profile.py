@@ -21,7 +21,7 @@ class UserProfile:
     def __post_init__(self) -> None:
         if not self.monthly_revenue.is_finite() or self.monthly_revenue <= 0:
             raise ValueError("Monthly revenue must be finite and positive")
-        if not self.objective.strip() or len(self.objective) > 120:
+        if not self.objective or len(self.objective) > 120:
             raise ValueError("Objective must contain between 1 and 120 characters")
-        if not self.preferences.strip():
+        if not self.preferences:
             raise ValueError("Preferences cannot be blank")

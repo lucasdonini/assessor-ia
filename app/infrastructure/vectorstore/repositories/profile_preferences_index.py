@@ -103,7 +103,7 @@ class QDrantProfilePreferencesIndex:
             preferences = payload.get("preferences")
             if payload.get("user_id") != str(user_id):
                 raise ValueError("Unexpected profile owner")
-            if not isinstance(preferences, str) or not preferences.strip():
+            if not isinstance(preferences, str) or not preferences:
                 raise ValueError("Invalid profile preferences payload")
             result.append(preferences)
         return result

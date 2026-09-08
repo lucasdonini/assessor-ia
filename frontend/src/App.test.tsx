@@ -51,6 +51,20 @@ function deferred<T>() {
 }
 
 describe('App', () => {
+  it('abre o perfil do usuário selecionado e volta ao chat', async () => {
+    const user = userEvent.setup()
+    await renderApp()
+
+    await user.click(screen.getByRole('button', { name: 'Perfil' }))
+
+    expect(screen.getByRole('heading', { name: 'perfil' })).toBeTruthy()
+    expect(screen.getByTitle(USER_ID)).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: 'voltar ao chat' }))
+
+    expect(screen.getByLabelText('Sua mensagem')).toBeTruthy()
+  })
+
   it('envia a mensagem e apresenta a resposta do assistente', async () => {
     const user = userEvent.setup()
     vi.mocked(sendChatMessage).mockResolvedValue({

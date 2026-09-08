@@ -4,7 +4,7 @@ Assistente web multiagente para organização financeira e apoio ao dia a dia. O
 backend usa FastAPI e LangGraph; a interface usa React, TypeScript e Vite.
 
 O PostgreSQL armazena transações, o MongoDB armazena a sessão e o histórico do
-chat, e o Qdrant mantém os embeddings usados na consulta ao FAQ. As respostas
+chat, e o Qdrant mantém os embeddings do FAQ e dos resumos de sessões. As respostas
 podem ser produzidas por modelos Gemini e Groq.
 
 ## Requisitos
@@ -71,6 +71,49 @@ uv run alembic upgrade head
 O build inicial do frontend cria `frontend/dist`, diretório que o FastAPI monta
 para servir a interface. Por isso, ele também é necessário antes da primeira
 execução local do backend em um clone limpo.
+
+### Memória semântica de sessões
+
+`HISTORY_COLLECTION_NAME` já é suportada e tem valor padrão `session-history`.
+A aplicação valida essa collection existente na inicialização: vetor padrão sem
+nome, dimensão igual a `EMBEDDING_DIMMENSIONS`, distância Cosine e índice de payload
+`keyword` em `user_id`. Ela não cria nem recria essa collection. O ambiente atual
+usa 768 dimensões e índice de usuário com `is_tenant=true`.
+
+Ao finalizar uma sessão, o resumo é salvo no MongoDB e indexado no Qdrant. O payload
+contém `user_id` (UUID em string), `session_id`, `summary` e `started_at` (ISO 8601).
+O ID do ponto é determinístico por usuário e sessão. Repetir a finalização reutiliza
+o resumo salvo e repete o upsert, sem gerar outro resumo ou duplicar pontos.
+
+Buscas vazias ou só com espaços retornam lista vazia sem I/O. Consultas preenchidas
+buscam por similaridade, sempre filtradas por usuário; não há fallback para sessões
+recentes. O limiar inicial do adaptador é `0.6`, independente do FAQ. Uma avaliação
+manual em 07/09/2026 com `gemini-embedding-2-preview`, três resumos sintéticos e seis
+perguntas recuperou três das quatro correspondências esperadas e rejeitou as duas
+perguntas sem correspondência. "Quando eu viajei?" teve similaridade `0.618` com o
+resumo de viagem; a consulta mais vaga sobre melhorar o escritório ficou em `0.567`
+e não foi recuperada. Esse limiar conservador precisa de avaliação adicional com
+conversas representativas. Os testes automatizados usam vetores controlados para
+verificar filtros e ordenação, sem depender da variabilidade do modelo.
+
+Uma falha no índice não desfaz o resumo persistido: a memória pode ficar incompleta
+até uma nova finalização ou uma carga explícita. Não há retentativa automática em
+segundo plano. Para validar a collection e contar resumos antigos sem gravar dados:
+
+```bash
+uv run python -m app.infrastructure.vectorstore.ingestors.history_ingestor --check
+```
+
+Para indexar os resumos existentes ou recuperar falhas, execute explicitamente:
+
+```bash
+uv run python -m app.infrastructure.vectorstore.ingestors.history_ingestor --batch-size 100
+```
+
+A leitura usa lotes do cursor MongoDB e projeta somente os campos do resumo.
+A carga não limpa dados nem regenera resumos, mas chama o provedor de embeddings
+para cada resumo e pode gerar custos. Ela para no primeiro erro; é seguro repeti-la.
+Mantenha o mesmo modelo de embeddings para gravar e consultar essa collection.
 
 ## Desenvolvimento local
 

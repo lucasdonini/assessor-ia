@@ -2,6 +2,7 @@ from uuid import UUID
 
 from app.application.ports.clock import Clock
 from app.application.ports.logger import Logger
+from app.application.ports.session_history_index import SessionHistoryIndex
 from app.application.repositories.chat_session_repository import (
     ChatSessionRepository,
 )
@@ -10,7 +11,7 @@ from app.domain.model.chat_entry import (
     ChatError,
     ChatMessage,
 )
-from app.domain.model.chat_session import ChatSession
+from app.domain.model.chat_session import ChatSession, ChatSessionSummarized
 
 from .session_summary_service import SessionSummaryService
 
@@ -22,11 +23,13 @@ class ChatSessionService:
         repository: ChatSessionRepository,
         logger: Logger,
         clock: Clock,
+        history_index: SessionHistoryIndex,
     ) -> None:
         self._service = service
         self._repository = repository
         self._logger = logger
         self._clock = clock
+        self._history_index = history_index
 
     async def get_or_create_session(
         self, session_id: str, *, user_id: UUID
@@ -88,9 +91,9 @@ class ChatSessionService:
         Finalizes the active session:
             1. Fetch session from MongoDB
             2. If the session is not found or has no entries, returns None
-            3. If the session is already finalized (has summary), returns the summary
+            3. Reuse an existing summary, retrying its indexing without another LLM call
             4. Summarize the entries and update the session in MongoDB
-            5. Returns the generated summary
+            5. Index the summary; an index failure does not undo finalization
         """
 
         session = await self._repository.find_by_session_id(session_id, user_id=user_id)
@@ -102,9 +105,12 @@ class ChatSessionService:
             return None
 
         if session.summary and (summary := session.summary.strip()):
+            await self._index_summary(session, summary)
             return summary
 
-        summary = await self._service.summarize_session(session.entries)
+        summary = (await self._service.summarize_session(session.entries)).strip()
+        if not summary:
+            raise ValueError("Session summarization returned an empty result")
         await self._repository.update_summary(
             session_id=session_id,
             user_id=user_id,
@@ -112,9 +118,28 @@ class ChatSessionService:
             updated_at=self._clock.now(),
         )
 
+        await self._index_summary(session, summary)
         self._logger.debug(
             "Session finalized",
             details={"entry_count": len(session.entries)},
         )
 
         return summary
+
+    async def _index_summary(self, session: ChatSession, summary: str) -> None:
+        try:
+            await self._history_index.index(
+                ChatSessionSummarized(
+                    user_id=session.user_id,
+                    session_id=session.session_id,
+                    summary=summary,
+                    started_at=session.started_at,
+                )
+            )
+        except Exception as error:
+            self._logger.exception(
+                "Session saved but history indexing failed; "
+                "retry finalization or backfill",
+                exception=error,
+                details={"session_id": session.session_id[:8]},
+            )

@@ -11,7 +11,7 @@ from app.services.chat_history_service import ChatHistoryService
 
 class SearchHistoryArgsSchema(BaseModel):
     search: Annotated[
-        str, Field(description="A expressão procurada no histórico através de regex")
+        str, Field(description="Assunto ou pergunta sobre conversas anteriores")
     ]
 
 

@@ -4,11 +4,12 @@ from unittest.mock import AsyncMock, MagicMock, create_autospec
 import pytest
 
 from app.application.ports.logger import Logger
+from app.application.ports.session_history_index import SessionHistoryIndex
 from app.application.repositories.chat_session_repository import (
     ChatSessionRepository,
 )
 from app.domain.model.chat_entry import AssistantMessage, ChatEntry, HumanMessage
-from app.domain.model.chat_session import ChatSession
+from app.domain.model.chat_session import ChatSession, ChatSessionSummarized
 from app.infrastructure.clock import FixedClock
 from app.services.chat_session_service import ChatSessionService
 from tests.user_identity import TEST_USER_ID
@@ -51,6 +52,7 @@ class TestChatSessionService:
             repository=repository,
             logger=MagicMock(spec=Logger),
             clock=FixedClock(_FIXED_TIME, "America/Sao_Paulo"),
+            history_index=create_autospec(SessionHistoryIndex, instance=True),
         )
 
     @pytest.mark.asyncio
@@ -178,3 +180,73 @@ class TestChatSessionService:
         )
         summary_service.summarize_session.assert_not_awaited()
         repository.update_summary.assert_not_awaited()
+        service._history_index.index.assert_awaited_once()
+        assert (
+            service._history_index.index.await_args.args[0].summary
+            == "Resumo existente"
+        )
+
+    @pytest.mark.asyncio
+    async def test_index_failure_preserves_summary_and_retry_reuses_it(
+        self,
+        service: ChatSessionService,
+        summary_service: MagicMock,
+        repository: MagicMock,
+    ) -> None:
+        session = _session(entries=(HumanMessage(content="viagem"),))
+        repository.find_by_session_id.return_value = session
+        summary_service.summarize_session.return_value = "Resumo persistido"
+
+        async def fail_after_save(indexed: ChatSessionSummarized) -> None:
+            repository.update_summary.assert_awaited_once()
+            assert indexed.user_id == TEST_USER_ID
+            raise RuntimeError("Qdrant unavailable")
+
+        service._history_index.index.side_effect = fail_after_save
+        assert (
+            await service.finalize_session(_SESSION_ID, user_id=TEST_USER_ID)
+            == "Resumo persistido"
+        )
+        repository.find_by_session_id.return_value = _session(
+            entries=session.entries, summary="Resumo persistido"
+        )
+        service._history_index.index.side_effect = None
+        assert (
+            await service.finalize_session(_SESSION_ID, user_id=TEST_USER_ID)
+            == "Resumo persistido"
+        )
+        summary_service.summarize_session.assert_awaited_once()
+        repository.update_summary.assert_awaited_once()
+        assert service._history_index.index.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_mongo_failure_prevents_indexing(
+        self,
+        service: ChatSessionService,
+        summary_service: MagicMock,
+        repository: MagicMock,
+    ) -> None:
+        repository.find_by_session_id.return_value = _session(
+            entries=(HumanMessage(content="oi"),)
+        )
+        summary_service.summarize_session.return_value = "Resumo"
+        repository.update_summary.side_effect = RuntimeError("Mongo unavailable")
+        with pytest.raises(RuntimeError):
+            await service.finalize_session(_SESSION_ID, user_id=TEST_USER_ID)
+        service._history_index.index.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_empty_generated_summary_is_not_saved_or_indexed(
+        self,
+        service: ChatSessionService,
+        summary_service: MagicMock,
+        repository: MagicMock,
+    ) -> None:
+        repository.find_by_session_id.return_value = _session(
+            entries=(HumanMessage(content="oi"),)
+        )
+        summary_service.summarize_session.return_value = "  "
+        with pytest.raises(ValueError):
+            await service.finalize_session(_SESSION_ID, user_id=TEST_USER_ID)
+        repository.update_summary.assert_not_awaited()
+        service._history_index.index.assert_not_awaited()

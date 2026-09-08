@@ -6,6 +6,11 @@ class ApplicationError(Exception):
         super().__init__(message or self.public_message)
 
 
+class SessionHistoryIndexError(ApplicationError):
+    code = "session_history_index_error"
+    public_message = "Não foi possível acessar a memória de conversas anteriores."
+
+
 class InvalidTransactionCommandError(ApplicationError):
     code = "invalid_transaction_command"
     public_message = "Os dados informados para a operação são inválidos."

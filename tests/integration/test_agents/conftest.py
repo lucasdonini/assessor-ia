@@ -84,7 +84,11 @@ def mock_all_llms(
 def chat_history_service(mock_logger) -> ChatHistoryService:
     repository = create_autospec(ChatSessionRepository, instance=True)
     repository.find_summaries.return_value = []
-    return ChatHistoryService(repository=repository, logger=mock_logger)
+    return ChatHistoryService(
+        repository=repository,
+        logger=mock_logger,
+        history_index=AsyncMock(search=AsyncMock(return_value=[])),
+    )
 
 
 @pytest.fixture

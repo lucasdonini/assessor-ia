@@ -103,6 +103,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     faq_search = QDrantFaqSearch(logger_factory=create_logger)
 
     graph = build_agent_graph(
+        profile_service=app.state.profile_service,
         transaction_service=transaction_service,
         chat_history_service=chat_history_service,
         faq_search=faq_search,

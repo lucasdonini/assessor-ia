@@ -11,6 +11,7 @@ from app.application.ports.text_generator import TextGenerator
 from app.infrastructure.llms import fast_llm, llm_gemini, llm_groq
 from app.services.chat_history_service import ChatHistoryService
 from app.services.transaction_service import TransactionService
+from app.services.user_profile_service import UserProfileService
 
 from ._core.factories.langchain_agent_factory import LangChainAgentFactory
 from ._core.middleware import FallbackOn429Middleware
@@ -23,6 +24,7 @@ from .guardrails import InputGuardrailNode, OutputGuardrailNode
 from .orquestrator import OrquestratorAgentNode
 from .router import RouterAgentNode
 from .tools.add_transaction import AddTransactionTool
+from .tools.consult_profile import ConsultProfileTool
 from .tools.daily_balance import DailyBalanceTool
 from .tools.delete_transaction import DeleteTransactionTool
 from .tools.faq_rag import FaqRag
@@ -36,6 +38,7 @@ from .tools.update_transaction import UpdateTransactionTool
 def build_agent_graph(
     *,
     transaction_service: TransactionService,
+    profile_service: UserProfileService,
     chat_history_service: ChatHistoryService,
     faq_search: FaqSearch,
     text_generator: TextGenerator,
@@ -115,6 +118,9 @@ def build_agent_graph(
             "total_balance": total_balance_tool,
             "update_transaction": update_transaction_tool,
             "search_history": search_history_tool,
+            "consult_profile": ConsultProfileTool(
+                service=profile_service, logger_factory=logger_factory
+            ),
         },
     )
 

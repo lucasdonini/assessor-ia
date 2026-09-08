@@ -16,6 +16,7 @@ from app.infrastructure.agents._core.factories.langchain_agent_factory import (
 from app.infrastructure.agents.financial import FinancialAgentNode
 from app.infrastructure.agents.financial.financial_agent import FinancialAgentTools
 from app.infrastructure.agents.tools.add_transaction import AddTransactionTool
+from app.infrastructure.agents.tools.consult_profile import ConsultProfileTool
 from app.infrastructure.agents.tools.daily_balance import DailyBalanceTool
 from app.infrastructure.agents.tools.delete_transaction import DeleteTransactionTool
 from app.infrastructure.agents.tools.restore_transaction import RestoreTransactionTool
@@ -27,6 +28,7 @@ from app.infrastructure.clock import FixedClock
 from app.infrastructure.llms import fast_llm, llm_gemini
 from app.infrastructure.text_generator import LLMTextGenerator
 from app.services.chat_history_service import ChatHistoryService
+from app.services.user_profile_service import UserProfileService
 
 
 @pytest.fixture
@@ -96,6 +98,10 @@ def financial_agent_node(
     transaction_service, application_clock, chat_history_service, mock_logger_factory
 ) -> FinancialAgentNode:
     tools: FinancialAgentTools = {
+        "consult_profile": ConsultProfileTool(
+            service=MagicMock(spec=UserProfileService),
+            logger_factory=mock_logger_factory,
+        ),
         "total_balance": TotalBalanceTool(
             service=transaction_service, logger_factory=mock_logger_factory
         ),
@@ -134,6 +140,7 @@ def agent_graph(
     transaction_service, application_clock, chat_history_service, mock_logger_factory
 ):
     return build_agent_graph(
+        profile_service=MagicMock(spec=UserProfileService),
         transaction_service=transaction_service,
         chat_history_service=chat_history_service,
         faq_search=MagicMock(spec=FaqSearch),

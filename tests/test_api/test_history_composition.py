@@ -20,6 +20,9 @@ async def test_lifespan_validates_history_before_using_it(
         index.validate_collection.side_effect = SessionHistoryIndexError()
     index_factory = MagicMock(return_value=index)
     monkeypatch.setattr(module, "QDrantSessionHistoryIndex", index_factory)
+    monkeypatch.setattr(
+        module, "QDrantProfilePreferencesIndex", MagicMock(return_value=AsyncMock())
+    )
     monkeypatch.setattr(module, "setup_logger", MagicMock())
     monkeypatch.setattr(module, "settings", MagicMock())
     monkeypatch.setattr(module, "create_logger", MagicMock())

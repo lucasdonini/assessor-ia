@@ -15,10 +15,12 @@ def test_financial_prompt_uses_injected_tool_names(history_name: str) -> None:
         total_balance_tool_name="custom_balance",
         update_transaction_tool_name="custom_update",
         search_history_tool_name=history_name,
+        consult_profile_tool_name="custom_profile",
     )
 
     for name in (
         "custom_add",
+        "custom_profile",
         "custom_daily",
         "custom_delete",
         "custom_restore",

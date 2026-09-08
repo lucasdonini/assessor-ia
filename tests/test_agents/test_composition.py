@@ -23,6 +23,7 @@ from app.infrastructure.agents._core.state import GraphState, GraphStateKeys
 from app.infrastructure.clock import FixedClock
 from app.services.chat_history_service import ChatHistoryService
 from app.services.transaction_service import TransactionService
+from app.services.user_profile_service import UserProfileService
 from tests.user_identity import TEST_USER_ID
 
 
@@ -52,6 +53,7 @@ def test_build_agent_graph_returns_initialized_graph() -> None:
 
     graph = build_agent_graph(
         transaction_service=transaction_service,
+        profile_service=MagicMock(spec=UserProfileService),
         chat_history_service=MagicMock(spec=ChatHistoryService),
         faq_search=_faq_search(),
         text_generator=text_generator,
@@ -70,6 +72,7 @@ def test_specialists_receive_history_tool_without_losing_domain_tools() -> None:
         LangChainAgentFactory, "create", return_value=MagicMock()
     ) as create:
         build_agent_graph(
+            profile_service=MagicMock(spec=UserProfileService),
             transaction_service=MagicMock(spec=TransactionService),
             chat_history_service=MagicMock(spec=ChatHistoryService),
             faq_search=_faq_search(),
@@ -94,6 +97,7 @@ def test_specialists_receive_history_tool_without_losing_domain_tools() -> None:
     agenda_tools = {tool.name: tool for tool in agenda_call.kwargs["tools"]}
 
     assert set(financial_tools) == {
+        "consult_profile",
         "total_balance",
         "daily_balance",
         "search_transactions",
@@ -116,6 +120,7 @@ async def test_agent_graph_times_out() -> None:
     text_generator = MagicMock()
     text_generator.generate = AsyncMock(return_value="CATEGORIA: APROVADO")
     graph = build_agent_graph(
+        profile_service=MagicMock(spec=UserProfileService),
         transaction_service=transaction_service,
         chat_history_service=MagicMock(spec=ChatHistoryService),
         faq_search=_faq_search(),
@@ -165,6 +170,7 @@ def test_build_agent_graph_shares_application_clock_with_temporal_nodes() -> Non
     clock = _fixed_clock()
 
     graph = build_agent_graph(
+        profile_service=MagicMock(spec=UserProfileService),
         transaction_service=transaction_service,
         chat_history_service=MagicMock(spec=ChatHistoryService),
         faq_search=_faq_search(),

@@ -15,6 +15,7 @@ from app.infrastructure.agents._core.state import GraphState, GraphStateKeys
 from .._core.contracts.agent_factory import AgentFactory
 from .._core.contracts.agent_node import AgentNode
 from ..tools.add_transaction import AddTransactionTool
+from ..tools.consult_profile import ConsultProfileTool
 from ..tools.daily_balance import DailyBalanceTool
 from ..tools.delete_transaction import DeleteTransactionTool
 from ..tools.restore_transaction import RestoreTransactionTool
@@ -34,6 +35,7 @@ class FinancialAgentTools(TypedDict):
     delete_transaction: DeleteTransactionTool
     restore_transaction: RestoreTransactionTool
     search_history: SearchHistoryTool
+    consult_profile: ConsultProfileTool
 
 
 class FinancialAgentNode(AgentNode):
@@ -59,6 +61,7 @@ class FinancialAgentNode(AgentNode):
             delete_transaction_tool_name=tools["delete_transaction"].name,
             restore_transaction_tool_name=tools["restore_transaction"].name,
             search_history_tool_name=tools["search_history"].name,
+            consult_profile_tool_name=tools["consult_profile"].name,
         )
         self._logger = logger_factory(__name__)
         self._clock = clock

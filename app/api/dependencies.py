@@ -5,6 +5,7 @@ from fastapi import Depends, Header, HTTPException, Request
 
 from app.application.models.user_context import UserContext
 from app.infrastructure.session_coordinator import SessionCoordinator
+from app.services.user_profile_service import UserProfileService
 from app.services.user_service import UserService
 
 from ..application.ports.agent_graph import AgentGraph
@@ -101,6 +102,10 @@ async def bind_session_logging_context(
 
 def get_user_service(request: Request) -> UserService:
     return UserService(request.app.state.user_repository)
+
+
+def get_profile_service(request: Request) -> UserProfileService:
+    return cast(UserProfileService, request.app.state.profile_service)
 
 
 async def get_user_context(

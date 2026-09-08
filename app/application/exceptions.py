@@ -11,6 +11,14 @@ class SessionHistoryIndexError(ApplicationError):
     public_message = "Não foi possível acessar a memória de conversas anteriores."
 
 
+class ProfileUnavailableError(ApplicationError):
+    code = "profile_unavailable"
+    public_message = (
+        "Não foi possível concluir a operação do perfil. "
+        "Tente salvar novamente pela tela Perfil."
+    )
+
+
 class InvalidTransactionCommandError(ApplicationError):
     code = "invalid_transaction_command"
     public_message = "Os dados informados para a operação são inválidos."

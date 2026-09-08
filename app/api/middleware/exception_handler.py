@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from app.application.exceptions import (
     ApplicationError,
     InvalidTransactionCommandError,
+    ProfileUnavailableError,
     TransactionConflictError,
     TransactionNotFoundError,
 )
@@ -62,6 +63,12 @@ def register_exception_handlers(
         request: Request, exc: TransactionConflictError
     ) -> JSONResponse:
         return application_error_response(exc, 409, request)
+
+    @app.exception_handler(ProfileUnavailableError)
+    async def handle_profile_unavailable(
+        request: Request, exc: ProfileUnavailableError
+    ) -> JSONResponse:
+        return application_error_response(exc, 503, request)
 
     @app.exception_handler(ApplicationError)
     async def handle_application_error(

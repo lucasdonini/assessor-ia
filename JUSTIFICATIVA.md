@@ -20,7 +20,7 @@ O `POST /api/profile` recebe `monthly_revenue`, `objective`, `risk_tolerance` e 
 
 ## Como as preferências são guardadas e consultadas e por que não é busca por palavra?
 
-O texto completo recebe um embedding de documento; a pergunta recebe um embedding de consulta e o Qdrant calcula similaridade cosseno com filtro por usuário. Existe um ponto por usuário, substituído a cada salvamento, e uma cópia do texto no MongoDB permite detectar um índice desatualizado; não há filtro por palavras.
+O texto completo recebe um embedding de documento; a pergunta recebe um embedding de consulta e o Qdrant calcula similaridade cosseno com filtro por usuário. Existe um ponto por usuário, substituído a cada salvamento, e uma cópia do texto no MongoDB permite detectar um índice desatualizado; não há filtro por palavras. Uma busca por palavras seria insegura pois as preferências indicam intenção. Se eu digo nas preferências que não quero nenhum investimento de alto risco, uma busca por cripto deve retornar o point das preferências pois a intenção é relacionada, o que uma busca por palavra não faria
 
 ## Foi criada uma tool ou duas e por quê?
 
@@ -40,7 +40,7 @@ O perfil é contexto do especialista financeiro já existente, não um novo dom�
 
 ## Por que o chat não altera o cadastro?
 
-A escrita está disponível apenas pela rota consumida pela tela Perfil; não existe tool de salvar perfil. O prompt orienta a usar essa tela e proíbe representar mudanças do perfil como transações ou alegar que o chat salvou o cadastro.
+A escrita está disponível apenas pela rota consumida pela tela Perfil; não existe tool de salvar perfil. O prompt orienta a usar essa tela e proíbe representar mudanças do perfil como transações ou alegar que o chat salvou o cadastro. Além disso, se o chat pudesse alterar o cadastro seria difícil rastrear as alterações além de abrir espaço para alucinações alterando um registro do usuário.
 
 ## Consistência e limites operacionais
 

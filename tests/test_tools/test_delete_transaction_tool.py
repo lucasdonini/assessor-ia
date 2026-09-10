@@ -42,7 +42,7 @@ class TestDeleteTransactionTool:
         )
         tool.service.update_transaction = AsyncMock(return_value=updated)
 
-        result = await tool._arun(query)
+        result = await tool._arun(query=query)
 
         assert isinstance(result, ToolSuccess)
         assert result.data.deleted is True
@@ -56,7 +56,7 @@ class TestDeleteTransactionTool:
             side_effect=TransactionNotFoundError
         )
 
-        result = await tool._arun(query)
+        result = await tool._arun(query=query)
 
         assert isinstance(result, ToolFailure)
         assert result.code == "transaction_not_found"
@@ -65,7 +65,7 @@ class TestDeleteTransactionTool:
         tool.service.update_transaction = AsyncMock(side_effect=Exception("DB error"))
 
         query = UpdateTransactionQuery(id=uuid4())
-        result = await tool._arun(query)
+        result = await tool._arun(query=query)
 
         assert isinstance(result, ToolFailure)
         assert result.code == "unexpected_error"

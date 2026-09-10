@@ -1,11 +1,14 @@
 from unittest.mock import MagicMock
 
+import pytest
+
 from app.application.ports.faq_search import FaqSearch
 from app.infrastructure.agents._core.schemas.tool_response import ToolSuccess
 from app.infrastructure.agents.tools.faq_rag import FaqRag, GetFAQAnswerResponse
 
 
-def test_searches_faq_through_injected_port(
+@pytest.mark.asyncio
+async def test_searches_faq_through_injected_port(
     mock_logger_factory: MagicMock,
 ) -> None:
     faq_search = MagicMock(spec=FaqSearch)
@@ -15,7 +18,7 @@ def test_searches_faq_through_injected_port(
         logger_factory=mock_logger_factory,
     )
 
-    result = tool._run("Como funciona o sistema?")
+    result = await tool._arun(question="Como funciona o sistema?")
 
     assert isinstance(result, ToolSuccess)
     assert isinstance(result.data, GetFAQAnswerResponse)

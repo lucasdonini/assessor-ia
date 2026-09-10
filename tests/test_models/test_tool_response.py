@@ -2,7 +2,7 @@ import pytest
 from pydantic import BaseModel
 
 from app.application.exceptions import TransactionNotFoundError
-from app.infrastructure.agents.financial.schemas.tool_response import (
+from app.infrastructure.agents._core.schemas.tool_response import (
     ToolFailure,
     ToolSuccess,
 )

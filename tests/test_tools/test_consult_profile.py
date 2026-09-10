@@ -7,8 +7,16 @@ import pytest
 
 from app.application.models.user_context import UserContext
 from app.domain.model.user_profile import RiskTolerance, UserProfile
+from app.infrastructure.agents._core.schemas.tool_response import (
+    ToolFailure,
+    ToolSuccess,
+)
 from app.infrastructure.agents._core.user_context import bind_user_context
-from app.infrastructure.agents.tools.consult_profile import ConsultProfileTool
+from app.infrastructure.agents.tools.consult_profile import (
+    ConsultProfileFoundResponse,
+    ConsultProfileNotFoundResponse,
+    ConsultProfileTool,
+)
 from app.services.user_profile_service import UserProfileService
 
 
@@ -19,14 +27,20 @@ async def test_concurrent_tool_calls_use_server_identity() -> None:
     tool = ConsultProfileTool(service=service, logger_factory=lambda _: MagicMock())
     first, second = uuid4(), uuid4()
 
-    async def consult(context: UserContext) -> str:
+    async def consult(
+        context: UserContext,
+    ) -> ToolSuccess[ConsultProfileNotFoundResponse]:
         with bind_user_context(context):
             return await tool.ainvoke({"query": "crypto"})
 
     results = await asyncio.gather(
         consult(UserContext(first)), consult(UserContext(second))
     )
-    assert all("tela Perfil" in result for result in results)
+    assert all(isinstance(result, ToolSuccess) for result in results)
+    assert all(
+        isinstance(result.data, ConsultProfileNotFoundResponse) for result in results
+    )
+    assert all("tela Perfil" in result.data.detail for result in results)
     assert {c.kwargs["user_id"] for c in service.consult.await_args_list} == {
         first,
         second,
@@ -47,9 +61,13 @@ async def test_profile_response_and_failure_do_not_expose_identity_or_errors() -
     tool = ConsultProfileTool(service=service, logger_factory=lambda _: MagicMock())
     with bind_user_context(UserContext(user_id)):
         result = await tool.ainvoke({"query": "crypto"})
-        assert "42.01" in result and "No aggressive assets" in result
-        assert str(user_id) not in result
+        assert isinstance(result, ToolSuccess)
+        assert isinstance(result.data, ConsultProfileFoundResponse)
+        assert result.data.monthly_revenue == Decimal("42.01")
+        assert result.data.preferences == "No aggressive assets"
+        assert "user_id" not in result.data.model_dump()
         service.consult.side_effect = RuntimeError("private URI")
         result = await tool.ainvoke({"query": "crypto"})
-    assert "private URI" not in result
-    assert "Não suponha" in result
+    assert isinstance(result, ToolFailure)
+    assert result.code == "unexpected_error"
+    assert "private URI" not in result.error

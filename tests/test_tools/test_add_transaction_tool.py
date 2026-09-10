@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app.domain.model.transaction import Category, TransactionType
-from app.infrastructure.agents.financial.schemas.tool_response import (
+from app.infrastructure.agents._core.schemas.tool_response import (
     ToolFailure,
     ToolSuccess,
 )

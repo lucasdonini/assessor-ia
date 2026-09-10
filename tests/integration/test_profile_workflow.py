@@ -12,8 +12,13 @@ from testcontainers.community.mongodb import MongoDbContainer
 
 from app.api.routes.profile import router
 from app.application.models.user_context import UserContext
+from app.infrastructure.agents._core.schemas.tool_response import ToolSuccess
 from app.infrastructure.agents._core.user_context import bind_user_context
-from app.infrastructure.agents.tools.consult_profile import ConsultProfileTool
+from app.infrastructure.agents.tools.consult_profile import (
+    ConsultProfileFoundResponse,
+    ConsultProfileNotFoundResponse,
+    ConsultProfileTool,
+)
 from app.infrastructure.mongodb.entities.user_profile import UserProfileDocument
 from app.infrastructure.mongodb.repositories.user_profile_repository import (
     BeanieUserProfileRepository,
@@ -60,9 +65,13 @@ async def test_http_mongodb_qdrant_and_tool_workflow() -> None:
                 service=service, logger_factory=lambda _: MagicMock()
             )
             with bind_user_context(UserContext(first)):
-                assert "não cadastrado" in await tool.ainvoke(
-                    {"query": "quanto guardar?"}
-                )
+                response = await tool.ainvoke({"query": "quanto guardar?"})
+                assert isinstance(response, ToolSuccess)
+
+                data = response.data
+                assert isinstance(data, ConsultProfileNotFoundResponse)
+
+                assert "não cadastrado" in data.detail
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as http:
@@ -93,10 +102,15 @@ async def test_http_mongodb_qdrant_and_tool_workflow() -> None:
             assert qdrant.count("profile_preferences").count == 2
             with bind_user_context(UserContext(first)):
                 result = await tool.ainvoke({"query": "crypto"})
-                assert "Liquidity for travel" in result
-                assert "Avoid aggressive" not in result
+                assert isinstance(result, ToolSuccess)
+                assert isinstance(result.data, ConsultProfileFoundResponse)
+                assert "Liquidity for travel" in result.data.preferences
+                assert "Avoid aggressive" not in result.data.preferences
             with bind_user_context(UserContext(second)):
-                assert "Avoid aggressive" in await tool.ainvoke({"query": "crypto"})
+                result = await tool.ainvoke({"query": "crypto"})
+                assert isinstance(result, ToolSuccess)
+                assert isinstance(result.data, ConsultProfileFoundResponse)
+                assert "Avoid aggressive" in result.data.preferences
         finally:
             await mongo.close()
             qdrant.close()

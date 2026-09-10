@@ -18,7 +18,7 @@ class LangChainAgentFactory:
         self._llm = llm
         self._middlewares = tuple(middlewares)
 
-    def create(
+    def __call__(
         self,
         *,
         system_prompt: str,

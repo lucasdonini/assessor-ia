@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 
 class AgentFactory(Protocol):
-    def create(
+    def __call__(
         self,
         *,
         system_prompt: str,

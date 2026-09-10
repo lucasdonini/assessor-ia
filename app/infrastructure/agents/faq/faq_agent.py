@@ -25,7 +25,7 @@ class FAQAgentNode(AgentNode):
     ) -> None:
         self._logger = logger_factory(__name__)
         prompt = build_faq_prompt(node_name=self.name, faq_rag_name=faq_rag.name)
-        self._agent = agent_factory.create(system_prompt=prompt, tools=(faq_rag,))
+        self._agent = agent_factory(system_prompt=prompt, tools=(faq_rag,))
 
     async def __call__(self, state: GraphState) -> dict[GraphStateKeys, Any]:
         input_length = len(state["messages"][-1].content)

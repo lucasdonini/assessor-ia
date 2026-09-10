@@ -31,3 +31,6 @@ build-frontend:
 
 build: upgrade-db check
 	docker compose up --build
+
+test:
+	uv run pytest -m 'integration or not integration'

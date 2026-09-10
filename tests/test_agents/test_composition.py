@@ -69,7 +69,7 @@ def test_build_agent_graph_returns_initialized_graph() -> None:
 
 def test_specialists_receive_history_tool_without_losing_domain_tools() -> None:
     with patch.object(
-        LangChainAgentFactory, "create", return_value=MagicMock()
+        LangChainAgentFactory, "__call__", return_value=MagicMock()
     ) as create:
         build_agent_graph(
             profile_service=MagicMock(spec=UserProfileService),

@@ -33,7 +33,7 @@ class AgendaAgentNode(AgentNode):
         prompt = build_agenda_prompt(search_history_tool_name=search_history_tool.name)
         self._logger = logger_factory(__name__)
         self._clock = clock
-        self._agent = agent_factory.create(
+        self._agent = agent_factory(
             system_prompt=prompt,
             response_format=AgendaOutput,
             tools=(search_history_tool,),

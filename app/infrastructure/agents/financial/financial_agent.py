@@ -65,7 +65,7 @@ class FinancialAgentNode(AgentNode):
         )
         self._logger = logger_factory(__name__)
         self._clock = clock
-        self._agent = agent_factory.create(
+        self._agent = agent_factory(
             system_prompt=prompt,
             tools=cast(Sequence[BaseTool], tools.values()),
             response_format=FinancialOutput,

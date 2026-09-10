@@ -28,7 +28,7 @@ class OrquestratorAgentNode(AgentNode):
     ) -> None:
         self._logger = logger_factory(__name__)
         self._clock = clock
-        self._agent = agent_factory.create(system_prompt=PROMPT)
+        self._agent = agent_factory(system_prompt=PROMPT)
 
     async def __call__(self, state: GraphState) -> dict[GraphStateKeys, Any]:
         input_length = len(state["messages"][-1].content)

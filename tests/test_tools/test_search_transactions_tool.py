@@ -42,7 +42,7 @@ class TestSearchTransactionsTool:
         tool.service.search_transactions = AsyncMock(return_value=mock_result)
 
         params = TransactionQueryParams(category=Category.FOOD)
-        result = await tool._arun(params)
+        result = await tool._arun(params=params)
 
         assert isinstance(result, ToolSuccess)
         assert len(result.data.transactions) == 1
@@ -51,7 +51,7 @@ class TestSearchTransactionsTool:
         tool.service.search_transactions = AsyncMock(return_value=[])
 
         params = TransactionQueryParams()
-        result = await tool._arun(params)
+        result = await tool._arun(params=params)
 
         assert isinstance(result, ToolSuccess)
         assert result.data.transactions == []
@@ -60,7 +60,7 @@ class TestSearchTransactionsTool:
         tool.service.search_transactions = AsyncMock(side_effect=Exception("fail"))
 
         params = TransactionQueryParams()
-        result = await tool._arun(params)
+        result = await tool._arun(params=params)
 
         assert isinstance(result, ToolFailure)
 
@@ -77,7 +77,7 @@ class TestSearchTransactionsTool:
         tool.service.search_transactions = AsyncMock(return_value=mock_result)
 
         params = TransactionQueryParams()
-        result = await tool._arun(params)
+        result = await tool._arun(params=params)
 
         assert isinstance(result, ToolSuccess)
         assert isinstance(result.data.transactions[0], TransactionOutput)

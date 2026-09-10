@@ -47,7 +47,7 @@ class TestUpdateTransactionTool:
         )
         tool.service.update_transaction = AsyncMock(return_value=updated)
 
-        result = await tool._arun(params)
+        result = await tool._arun(params=params)
 
         assert isinstance(result, ToolSuccess)
         assert result.data.updated is not None
@@ -63,7 +63,7 @@ class TestUpdateTransactionTool:
             side_effect=NoTransactionChangesError
         )
 
-        result = await tool._arun(params)
+        result = await tool._arun(params=params)
 
         assert isinstance(result, ToolFailure)
         assert result.code == "no_transaction_changes"
@@ -75,7 +75,7 @@ class TestUpdateTransactionTool:
             query=UpdateTransactionQuery(id=uuid4()),
             amount=200.0,
         )
-        result = await tool._arun(params)
+        result = await tool._arun(params=params)
 
         assert isinstance(result, ToolFailure)
         assert result.code == "unexpected_error"

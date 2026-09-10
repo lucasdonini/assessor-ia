@@ -35,7 +35,7 @@ class TestAddTransactionTool:
             side_effect=lambda transaction, *, user_id: transaction
         )
 
-        result = await tool._arun(t)
+        result = await tool._arun(transaction=t)
 
         assert isinstance(result, ToolSuccess)
         assert result.data.transaction is not None
@@ -49,6 +49,6 @@ class TestAddTransactionTool:
             amount=100.0,
             source_text="test",
         )
-        result = await tool._arun(t)
+        result = await tool._arun(transaction=t)
 
         assert isinstance(result, ToolFailure)

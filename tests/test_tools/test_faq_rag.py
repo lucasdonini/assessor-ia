@@ -1,7 +1,8 @@
 from unittest.mock import MagicMock
 
 from app.application.ports.faq_search import FaqSearch
-from app.infrastructure.agents.tools.faq_rag import FaqRag
+from app.infrastructure.agents._core.schemas.tool_response import ToolSuccess
+from app.infrastructure.agents.tools.faq_rag import FaqRag, GetFAQAnswerResponse
 
 
 def test_searches_faq_through_injected_port(
@@ -16,7 +17,9 @@ def test_searches_faq_through_injected_port(
 
     result = tool._run("Como funciona o sistema?")
 
-    assert result == ["Trecho relevante"]
+    assert isinstance(result, ToolSuccess)
+    assert isinstance(result.data, GetFAQAnswerResponse)
+    assert result.data.response == ["Trecho relevante"]
     faq_search.search.assert_called_once_with(
         "Como funciona o sistema?",
         limit=6,

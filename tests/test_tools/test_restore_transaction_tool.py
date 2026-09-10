@@ -9,7 +9,7 @@ from app.application.models.transaction_update import (
     UpdateTransactionQuery,
 )
 from app.domain.model.transaction import Category, Transaction, TransactionType
-from app.infrastructure.agents.financial.schemas.tool_response import (
+from app.infrastructure.agents._core.schemas.tool_response import (
     ToolFailure,
     ToolSuccess,
 )

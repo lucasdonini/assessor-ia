@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.infrastructure.agents.financial.schemas.tool_response import ToolFailure
+from app.infrastructure.agents._core.schemas.tool_response import ToolFailure
 from app.infrastructure.agents.tools.total_balance import TotalBalanceTool
 from app.services.transaction_service import TransactionService
 

@@ -39,7 +39,7 @@ class TestCalculateTotalBalance:
 
         service = TransactionService(
             repository=transaction_repository,
-            logger=mock_logger,
+            logger_factory=lambda _: mock_logger,
         )
         balance = await service.calculate_total_balance(user_id=TEST_USER_ID)
         assert balance == 0.0
@@ -69,7 +69,7 @@ class TestCalculateDailyBalance:
 
         service = TransactionService(
             repository=transaction_repository,
-            logger=mock_logger,
+            logger_factory=lambda _: mock_logger,
         )
         balance = await service.calculate_daily_balance(
             date(2026, 1, 1), user_id=TEST_USER_ID

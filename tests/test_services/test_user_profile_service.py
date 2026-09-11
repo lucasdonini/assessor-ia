@@ -18,7 +18,9 @@ async def test_partial_failure_can_be_retried_and_stale_preferences_are_refused(
     repository, index = AsyncMock(), AsyncMock()
     repository.find_by_user_id.return_value = profile
     index.upsert.side_effect = [RuntimeError("private backend detail"), None]
-    service = UserProfileService(repository=repository, index=index, logger=MagicMock())
+    service = UserProfileService(
+        repository=repository, index=index, logger_factory=lambda _: MagicMock()
+    )
     with pytest.raises(ProfileUnavailableError):
         await service.save(profile)
     assert await service.save(profile) == profile
@@ -38,7 +40,9 @@ async def test_partial_failure_can_be_retried_and_stale_preferences_are_refused(
 async def test_missing_profile_does_not_query_or_populate_index() -> None:
     repository, index = AsyncMock(), AsyncMock()
     repository.find_by_user_id.return_value = None
-    service = UserProfileService(repository=repository, index=index, logger=MagicMock())
+    service = UserProfileService(
+        repository=repository, index=index, logger_factory=lambda _: MagicMock()
+    )
     assert await service.consult("saving", user_id=uuid4()) is None
     index.search.assert_not_called()
     index.upsert.assert_not_called()

@@ -32,6 +32,7 @@ from .infrastructure.postgres.repositories.transaction_repository import (
 from .infrastructure.settings import settings
 from .infrastructure.text_generator import LLMTextGenerator
 from .infrastructure.vectorstore.client import qdrant_client
+from .infrastructure.vectorstore.config import SessionHistoryConfig
 from .infrastructure.vectorstore.embeddings import qdrant_embeddings
 from .infrastructure.vectorstore.ingestors.faq_ingestor import QDrantFaqIngestor
 from .infrastructure.vectorstore.repositories.faq_embedding_repository import (
@@ -56,9 +57,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     history_index = QDrantSessionHistoryIndex(
         client=qdrant_client,
         embeddings=qdrant_embeddings,
-        collection_name=settings.history_collection_name,
-        dimensions=settings.embedding_dimmensions,
-        logger=create_logger(QDrantSessionHistoryIndex.__module__),
+        config=SessionHistoryConfig(
+            collection_name=settings.history_collection_name,
+            dimensions=settings.embedding_dimmensions,
+        ),
+        logger_factory=create_logger,
     )
     await history_index.validate_collection()
     app.state.history_index = history_index
@@ -77,7 +80,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.profile_service = UserProfileService(
         repository=BeanieUserProfileRepository(),
         index=profile_index,
-        logger=create_logger(UserProfileService.__module__),
+        logger_factory=create_logger,
     )
     chat_session_repository = BeanieChatSessionRepository()
     postgres_manager = PostgresManager(settings.postgres_url.get_secret_value())
@@ -92,12 +95,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     transaction_service = TransactionService(
         repository=transaction_repository,
-        logger=create_logger(TransactionService.__module__),
+        logger_factory=create_logger,
     )
     chat_history_service = ChatHistoryService(
         history_index=history_index,
         repository=chat_session_repository,
-        logger=create_logger(ChatHistoryService.__module__),
+        logger_factory=create_logger,
     )
 
     faq_search = QDrantFaqSearch(logger_factory=create_logger)

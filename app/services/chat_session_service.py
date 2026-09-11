@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from app.application.ports.clock import Clock
-from app.application.ports.logger import Logger
+from app.application.ports.logger import Logger, LoggerFactory
 from app.application.ports.session_history_index import SessionHistoryIndex
 from app.application.repositories.chat_session_repository import (
     ChatSessionRepository,
@@ -21,13 +21,13 @@ class ChatSessionService:
         self,
         service: SessionSummaryService,
         repository: ChatSessionRepository,
-        logger: Logger,
+        logger_factory: LoggerFactory,
         clock: Clock,
         history_index: SessionHistoryIndex,
     ) -> None:
         self._service = service
         self._repository = repository
-        self._logger = logger
+        self._logger: Logger = logger_factory(__name__)
         self._clock = clock
         self._history_index = history_index
 

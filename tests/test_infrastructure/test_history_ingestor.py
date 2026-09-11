@@ -26,7 +26,9 @@ async def summaries() -> AsyncIterator[ChatSessionSummarized]:
 @pytest.mark.asyncio
 async def test_backfill_streams_nonempty_summaries() -> None:
     index = create_autospec(SessionHistoryIndex, instance=True)
-    ingestor = HistoryIngestor(history_index=index, logger=MagicMock())
+    ingestor = HistoryIngestor(
+        history_index=index, logger_factory=lambda _: MagicMock()
+    )
     assert await ingestor.ingest(summaries()) == 2
     assert index.index.await_count == 2
 
@@ -35,7 +37,9 @@ async def test_backfill_streams_nonempty_summaries() -> None:
 async def test_backfill_stops_on_failure_and_can_be_repeated() -> None:
     index = create_autospec(SessionHistoryIndex, instance=True)
     index.index.side_effect = RuntimeError("offline")
-    ingestor = HistoryIngestor(history_index=index, logger=MagicMock())
+    ingestor = HistoryIngestor(
+        history_index=index, logger_factory=lambda _: MagicMock()
+    )
     with pytest.raises(RuntimeError):
         await ingestor.ingest(summaries())
     assert index.index.await_count == 1

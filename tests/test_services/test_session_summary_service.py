@@ -17,7 +17,7 @@ class TestSessionSummaryService:
         text_generator = MagicMock()
         text_generator.generate = AsyncMock()
         logger = MagicMock(spec=Logger)
-        return SessionSummaryService(text_generator, logger=logger)
+        return SessionSummaryService(text_generator, logger_factory=lambda _: logger)
 
     @pytest.mark.asyncio
     async def test_summarize_session(self, service):

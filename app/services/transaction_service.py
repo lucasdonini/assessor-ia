@@ -12,15 +12,17 @@ from app.application.models.transaction_query import (
 from app.application.models.transaction_update import (
     UpdateTransactionParams,
 )
-from app.application.ports.logger import Logger
+from app.application.ports.logger import Logger, LoggerFactory
 from app.application.repositories.transaction_repository import TransactionRepository
 from app.domain.model.transaction import Transaction
 
 
 class TransactionService:
-    def __init__(self, repository: TransactionRepository, logger: Logger) -> None:
+    def __init__(
+        self, repository: TransactionRepository, logger_factory: LoggerFactory
+    ) -> None:
         self._repository = repository
-        self._logger = logger
+        self._logger: Logger = logger_factory(__name__)
 
     async def calculate_total_balance(self, *, user_id: UUID) -> float:
         self._logger.debug("Calculating total balance")

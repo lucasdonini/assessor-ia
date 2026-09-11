@@ -171,7 +171,9 @@ def mock_logger_factory(mock_logger: MagicMock) -> MagicMock:
 
 @pytest.fixture
 def service(mock_repository: MagicMock, mock_logger: MagicMock) -> TransactionService:
-    return TransactionService(repository=mock_repository, logger=mock_logger)
+    return TransactionService(
+        repository=mock_repository, logger_factory=lambda _: mock_logger
+    )
 
 
 @pytest.fixture

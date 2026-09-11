@@ -29,8 +29,9 @@ check:
 build-frontend:
 	npm run --prefix frontend build
 
-build: upgrade-db check
+build: upgrade-db check test
 	docker compose up --build
 
 test:
 	uv run pytest -m 'integration or not integration'
+	&& npm test --prefix frontend

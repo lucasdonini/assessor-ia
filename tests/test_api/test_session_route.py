@@ -6,7 +6,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_chat_session_service, get_user_context
+from app.api.dependencies import (
+    bind_session_logging_context,
+    coordinate_session,
+    get_chat_session_service,
+    get_user_context,
+)
 from app.api.middleware.exception_handler import register_exception_handlers
 from app.api.routes.session import router
 from app.application.models.user_context import UserContext
@@ -50,6 +55,14 @@ def client(session_service: SessionServiceStub) -> Generator[TestClient]:
         return session_service
 
     app.dependency_overrides[get_chat_session_service] = override_session_service
+
+    async def override_context_dependencies():
+        yield
+
+    app.dependency_overrides[bind_session_logging_context] = (
+        override_context_dependencies
+    )
+    app.dependency_overrides[coordinate_session] = override_context_dependencies
 
     with TestClient(app, raise_server_exceptions=False) as test_client:
         yield test_client

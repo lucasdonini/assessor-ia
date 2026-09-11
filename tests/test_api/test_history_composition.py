@@ -1,68 +1,53 @@
-from importlib import import_module
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import FastAPI
-from starlette.requests import Request
 
-from app.api.dependencies import get_chat_session_service, get_history_index
 from app.application.exceptions import SessionHistoryIndexError
+from app.bootstrap import providers
+from app.infrastructure.vectorstore.config import SessionHistoryConfig
+from app.lifespan import lifespan
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("invalid", [False, True])
-async def test_lifespan_validates_history_before_using_it(
+async def test_provider_validates_history_before_providing_it(
     monkeypatch: pytest.MonkeyPatch, invalid: bool
 ) -> None:
-    module = import_module("app.lifespan")
     index = AsyncMock()
     if invalid:
         index.validate_collection.side_effect = SessionHistoryIndexError()
     index_factory = MagicMock(return_value=index)
-    monkeypatch.setattr(module, "QDrantSessionHistoryIndex", index_factory)
-    monkeypatch.setattr(
-        module, "QDrantProfilePreferencesIndex", MagicMock(return_value=AsyncMock())
+    monkeypatch.setattr(providers, "QDrantSessionHistoryIndex", index_factory)
+
+    dependency = providers.build_history_index(
+        client=MagicMock(),
+        embeddings=MagicMock(),
+        config=SessionHistoryConfig("session-history", 768),
+        logger_factory=MagicMock(),
     )
-    monkeypatch.setattr(module, "setup_logger", MagicMock())
-    monkeypatch.setattr(module, "settings", MagicMock())
-    monkeypatch.setattr(module, "create_logger", MagicMock())
-    faq = MagicMock()
-    monkeypatch.setattr(module, "QDrantFaqIngestor", faq)
-    monkeypatch.setattr(module, "MongoManager", MagicMock(return_value=AsyncMock()))
-    postgres = MagicMock(dispose=AsyncMock())
-    monkeypatch.setattr(module, "PostgresManager", MagicMock(return_value=postgres))
-    for name in (
-        "SQLAlchemyUserRepository",
-        "SQLAlchemyTransactionRepository",
-        "BeanieChatSessionRepository",
-        "LLMTextGenerator",
-        "TransactionService",
-        "SystemClock",
-        "QDrantFaqSearch",
-        "build_agent_graph",
-    ):
-        monkeypatch.setattr(module, name, MagicMock())
-    history_service = MagicMock()
-    monkeypatch.setattr(module, "ChatHistoryService", history_service)
-    app = FastAPI()
     if invalid:
         with pytest.raises(SessionHistoryIndexError):
-            async with module.lifespan(app):
-                pytest.fail("Startup should fail on invalid history configuration")
-        faq.assert_not_called()
-        history_service.assert_not_called()
+            await dependency
     else:
-        async with module.lifespan(app):
-            assert app.state.history_index is index
-            assert history_service.call_args.kwargs["history_index"] is index
-            request = Request({"type": "http", "app": app})
-            service = get_chat_session_service(
-                history_index=get_history_index(request),
-                clock=MagicMock(),
-                logger_factory=MagicMock(),
-                session_repository=MagicMock(),
-                session_summary_service=MagicMock(),
-            )
-            assert service._history_index is index
-        postgres.dispose.assert_awaited_once()
+        assert await dependency is index
     index.validate_collection.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_lifespan_resolves_roots_and_closes_container(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    faq_ingestor = MagicMock()
+    container = AsyncMock()
+    container.get.side_effect = [MagicMock(), faq_ingestor]
+    app = FastAPI()
+    app.state.dishka_container = container
+    monkeypatch.setattr("app.lifespan.setup_logger", MagicMock())
+    monkeypatch.setattr("app.lifespan.settings", MagicMock())
+
+    async with lifespan(app):
+        faq_ingestor.ingest.assert_called_once_with()
+
+    assert container.get.await_count == 2
+    container.close.assert_awaited_once_with()

@@ -10,7 +10,7 @@ from pymongo.monitoring import (
     register,
 )
 
-from ..settings import PydanticSettings
+from ..config import MongoConfig
 from .entities.chat_session import ChatSessionDocument
 from .entities.user_profile import UserProfileDocument
 
@@ -74,21 +74,24 @@ class LoggingMongoCommandListener(CommandListener):
 
 
 class MongoManager:
-    def __init__(self, settings: PydanticSettings) -> None:
-        self._settings = settings
+    def __init__(self, config: MongoConfig) -> None:
+        self._config = config
         self._client: AsyncMongoClient | None = None
         self._registered_listeners: bool = False
 
     async def init_database(self) -> None:
         """Initialize connection and map classes"""
         if self._client is None:
-            self._client = AsyncMongoClient(
-                self._settings.mongodb_uri.get_secret_value()
-            )
+            self._client = AsyncMongoClient(self._config.uri)
         if not self._registered_listeners:
             register(LoggingMongoCommandListener())
         await init_beanie(
-            database=self._client[self._settings.mongodb_dbname.get_secret_value()],
+            database=self._client[self._config.database_name],
             document_models=[ChatSessionDocument, UserProfileDocument],
         )
         logger.debug("MongoDB initialized")
+
+    async def dispose(self) -> None:
+        if self._client is not None:
+            await self._client.close()
+            self._client = None

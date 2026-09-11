@@ -5,9 +5,10 @@ from uuid import uuid4
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_user_context
+from app.api.dependencies import get_user_context, get_user_service
 from app.api.routes.user import router
 from app.domain.model.user import User
+from app.services.user_service import UserService
 
 
 def test_user_registry_and_required_identity():
@@ -23,7 +24,7 @@ def test_user_registry_and_required_identity():
     repository.create.return_value = user
     repository.list_users.return_value = [user]
     repository.exists.side_effect = lambda user_id: user_id == user.id
-    app.state.user_repository = repository
+    app.dependency_overrides[get_user_service] = lambda: UserService(repository)
     app.include_router(router, prefix="/api")
 
     @app.get("/identity")

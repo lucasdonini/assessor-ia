@@ -7,7 +7,14 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_chat_session_service, get_graph, get_user_context
+from app.api.dependencies import (
+    bind_session_logging_context,
+    coordinate_session,
+    get_chat_session_service,
+    get_graph,
+    get_user_context,
+    get_user_service,
+)
 from app.api.middleware.exception_handler import register_exception_handlers
 from app.api.routes.chat import router
 from app.application.models.agent_execution import AgentExecutionResult
@@ -20,6 +27,7 @@ from app.domain.model.chat_entry import AssistantMessage, ChatMessage, HumanMess
 from app.domain.model.chat_session import ChatSession
 from app.infrastructure.logger import bind_session_context
 from app.infrastructure.session_coordinator import SessionCoordinator
+from app.services.user_service import UserService
 from tests.user_identity import TEST_USER_ID
 
 _SESSION_ID = "session-123"
@@ -109,6 +117,14 @@ def client(
 
     app.dependency_overrides[get_graph] = override_graph
     app.dependency_overrides[get_chat_session_service] = override_session_service
+
+    async def override_context_dependencies():
+        yield
+
+    app.dependency_overrides[bind_session_logging_context] = (
+        override_context_dependencies
+    )
+    app.dependency_overrides[coordinate_session] = override_context_dependencies
 
     with TestClient(app, raise_server_exceptions=False) as test_client:
         yield test_client
@@ -220,6 +236,9 @@ def test_missing_user_rejected_before_chat_execution(client, graph, session_serv
 
     del client.app.dependency_overrides[get_user_context]
     client.app.state.user_repository = AsyncMock()
+    client.app.dependency_overrides[get_user_service] = lambda: UserService(
+        client.app.state.user_repository
+    )
     response = client.post(f"/api/chat/{_SESSION_ID}", json={"message": "hello"})
     assert response.status_code == 422
     assert not graph.messages

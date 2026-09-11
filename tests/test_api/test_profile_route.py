@@ -6,12 +6,17 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_user_context
+from app.api.dependencies import (
+    get_profile_service,
+    get_user_context,
+    get_user_service,
+)
 from app.api.middleware.exception_handler import register_exception_handlers
 from app.api.routes.profile import router
 from app.application.exceptions import ProfileUnavailableError
 from app.application.models.user_context import UserContext
 from app.infrastructure.logger import bind_session_context
+from app.services.user_service import UserService
 from tests.user_identity import TEST_USER_ID
 
 
@@ -23,6 +28,7 @@ def client() -> Generator[TestClient]:
     )
     app.state.profile_service = AsyncMock()
     app.state.profile_service.save.side_effect = lambda profile: profile
+    app.dependency_overrides[get_profile_service] = lambda: app.state.profile_service
     app.dependency_overrides[get_user_context] = lambda: UserContext(TEST_USER_ID)
     app.include_router(router, prefix="/api")
 
@@ -83,6 +89,9 @@ def test_profile_rejects_missing_invalid_or_unknown_identity(
     del client.app.dependency_overrides[get_user_context]
     client.app.state.user_repository = AsyncMock()
     client.app.state.user_repository.exists.return_value = False
+    client.app.dependency_overrides[get_user_service] = lambda: UserService(
+        client.app.state.user_repository
+    )
     response = client.post(
         "/api/profile",
         headers={"X-User-ID": header} if header else {},

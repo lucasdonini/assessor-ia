@@ -6,7 +6,7 @@ from collections.abc import AsyncIterable
 
 from pymongo import AsyncMongoClient
 
-from app.application.ports.logger import Logger
+from app.application.ports.logger import Logger, LoggerFactory
 from app.application.ports.session_history_index import SessionHistoryIndex
 from app.domain.model.chat_session import ChatSessionSummarized
 from app.infrastructure.mongodb.entities.chat_session import (
@@ -16,12 +16,15 @@ from app.infrastructure.mongodb.entities.chat_session import (
 from app.infrastructure.mongodb.mappers.chat_session_mapper import (
     ChatSessionSummarizedMapper,
 )
+from app.infrastructure.vectorstore.config import SessionHistoryConfig
 
 
 class HistoryIngestor:
-    def __init__(self, *, history_index: SessionHistoryIndex, logger: Logger) -> None:
+    def __init__(
+        self, *, history_index: SessionHistoryIndex, logger_factory: LoggerFactory
+    ) -> None:
         self._history_index = history_index
-        self._logger = logger
+        self._logger: Logger = logger_factory(__name__)
 
     async def ingest(self, sessions: AsyncIterable[ChatSessionSummarized]) -> int:
         count = 0
@@ -45,13 +48,14 @@ async def _run(*, check_only: bool, batch_size: int) -> None:
     )
 
     setup_logger()
-    logger = create_logger(__name__)
     index = QDrantSessionHistoryIndex(
         client=qdrant_client,
         embeddings=qdrant_embeddings,
-        collection_name=settings.history_collection_name,
-        dimensions=settings.embedding_dimmensions,
-        logger=logger,
+        config=SessionHistoryConfig(
+            collection_name=settings.history_collection_name,
+            dimensions=settings.embedding_dimmensions,
+        ),
+        logger_factory=create_logger,
     )
     client: AsyncMongoClient = AsyncMongoClient(
         settings.mongodb_uri.get_secret_value(),
@@ -90,9 +94,9 @@ async def _run(*, check_only: bool, batch_size: int) -> None:
                     projection = ChatSessionSummaryProjection.model_validate(document)
                     yield ChatSessionSummarizedMapper.document_to_model(projection)
 
-        count = await HistoryIngestor(history_index=index, logger=logger).ingest(
-            summaries()
-        )
+        count = await HistoryIngestor(
+            history_index=index, logger_factory=create_logger
+        ).ingest(summaries())
         print(f"Resumos indexados: {count}")
     finally:
         await client.close()

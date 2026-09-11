@@ -8,8 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from qdrant_client import QdrantClient, models
 
 from app.application.exceptions import SessionHistoryIndexError
-from app.application.ports.logger import Logger
+from app.application.ports.logger import Logger, LoggerFactory
 from app.domain.model.chat_session import ChatSessionSummarized
+from app.infrastructure.vectorstore.config import SessionHistoryConfig
 
 
 class HistoryEmbeddings(Protocol):
@@ -33,19 +34,17 @@ class QDrantSessionHistoryIndex:
         *,
         client: QdrantClient,
         embeddings: HistoryEmbeddings,
-        collection_name: str,
-        dimensions: int,
-        logger: Logger,
-        score_threshold: float = 0.6,
+        config: SessionHistoryConfig,
+        logger_factory: LoggerFactory,
     ) -> None:
-        if dimensions <= 0 or not -1 <= score_threshold <= 1:
+        if config.dimensions <= 0 or not -1 <= config.score_threshold <= 1:
             raise ValueError("Invalid history vector dimensions or score threshold")
         self._client = client
         self._embeddings = embeddings
-        self._collection_name = collection_name
-        self._dimensions = dimensions
-        self._logger = logger
-        self._score_threshold = score_threshold
+        self._collection_name = config.collection_name
+        self._dimensions = config.dimensions
+        self._logger: Logger = logger_factory(__name__)
+        self._score_threshold = config.score_threshold
 
     async def validate_collection(self) -> None:
         """Read existing metadata; never create or modify the collection."""

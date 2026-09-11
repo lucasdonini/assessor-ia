@@ -3,7 +3,7 @@ from dataclasses import replace
 from uuid import UUID
 
 from app.application.exceptions import ProfileUnavailableError
-from app.application.ports.logger import Logger
+from app.application.ports.logger import Logger, LoggerFactory
 from app.application.ports.profile_preferences_index import ProfilePreferencesIndex
 from app.application.repositories.user_profile_repository import UserProfileRepository
 from app.domain.model.user_profile import UserProfile
@@ -15,11 +15,11 @@ class UserProfileService:
         *,
         repository: UserProfileRepository,
         index: ProfilePreferencesIndex,
-        logger: Logger,
+        logger_factory: LoggerFactory,
     ) -> None:
         self._repository = repository
         self._index = index
-        self._logger = logger
+        self._logger: Logger = logger_factory(__name__)
         # One shared application instance serializes the two-store operations.
         self._lock = asyncio.Lock()
 

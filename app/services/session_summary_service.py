@@ -1,6 +1,6 @@
 import traceback
 
-from app.application.ports.logger import Logger
+from app.application.ports.logger import Logger, LoggerFactory
 from app.application.ports.text_generator import TextGenerator
 from app.domain.model.chat_entry import ChatEntry, ChatMessage
 
@@ -51,9 +51,11 @@ Retorne apenas o resumo.
 
 
 class SessionSummaryService:
-    def __init__(self, text_generator: TextGenerator, logger: Logger) -> None:
+    def __init__(
+        self, text_generator: TextGenerator, logger_factory: LoggerFactory
+    ) -> None:
         self._text_generator = text_generator
-        self._logger = logger
+        self._logger: Logger = logger_factory(__name__)
 
     def _format_conversation(self, entries: tuple[ChatEntry, ...]) -> str:
         """Formats entries array for summary"""

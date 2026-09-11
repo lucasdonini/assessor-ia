@@ -23,7 +23,7 @@ class TestChatHistoryService:
     def service(self, repository):
         return ChatHistoryService(
             repository=repository,
-            logger=MagicMock(spec=Logger),
+            logger_factory=lambda _: MagicMock(spec=Logger),
             history_index=create_autospec(SessionHistoryIndex, instance=True),
         )
 

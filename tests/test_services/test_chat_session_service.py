@@ -50,7 +50,7 @@ class TestChatSessionService:
         return ChatSessionService(
             service=summary_service,
             repository=repository,
-            logger=MagicMock(spec=Logger),
+            logger_factory=lambda _: MagicMock(spec=Logger),
             clock=FixedClock(_FIXED_TIME, "America/Sao_Paulo"),
             history_index=create_autospec(SessionHistoryIndex, instance=True),
         )

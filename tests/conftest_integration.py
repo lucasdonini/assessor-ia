@@ -99,7 +99,7 @@ def transaction_repository(session_factory) -> SQLAlchemyTransactionRepository:
 def transaction_service(transaction_repository, mock_logger) -> TransactionService:
     return TransactionService(
         repository=transaction_repository,
-        logger=mock_logger,
+        logger_factory=lambda _: mock_logger,
     )
 
 

@@ -62,7 +62,7 @@ async def test_mongodb_owner_filters_and_immutable_session_owner():
                 history_index=AsyncMock(),
                 service=AsyncMock(),
                 repository=repository,
-                logger=MagicMock(),
+                logger_factory=lambda _: MagicMock(),
                 clock=MagicMock(now=lambda: now),
             )
             with pytest.raises(ChatSessionNotFoundException):

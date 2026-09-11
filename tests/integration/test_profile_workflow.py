@@ -51,7 +51,9 @@ async def test_http_mongodb_qdrant_and_tool_workflow() -> None:
             await index.initialize()
             repository = BeanieUserProfileRepository()
             service = UserProfileService(
-                repository=repository, index=index, logger=MagicMock()
+                repository=repository,
+                index=index,
+                logger_factory=lambda _: MagicMock(),
             )
             first, second = uuid4(), uuid4()
             app = FastAPI()

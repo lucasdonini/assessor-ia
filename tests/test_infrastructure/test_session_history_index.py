@@ -10,6 +10,7 @@ from qdrant_client import QdrantClient, models
 
 from app.application.exceptions import SessionHistoryIndexError
 from app.domain.model.chat_session import ChatSessionSummarized
+from app.infrastructure.vectorstore.config import SessionHistoryConfig
 from app.infrastructure.vectorstore.repositories.session_history_index import (
     QDrantSessionHistoryIndex,
 )
@@ -31,10 +32,12 @@ def make_index(
     return QDrantSessionHistoryIndex(
         client=client,
         embeddings=embeddings,
-        collection_name="session-history",
-        dimensions=3,
-        logger=MagicMock(),
-        score_threshold=0.6,
+        config=SessionHistoryConfig(
+            collection_name="session-history",
+            dimensions=3,
+            score_threshold=0.6,
+        ),
+        logger_factory=lambda _: MagicMock(),
     )
 
 

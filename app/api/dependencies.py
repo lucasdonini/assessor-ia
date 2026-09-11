@@ -49,10 +49,9 @@ def _get_session_summary_service(
     logger_factory: Annotated[LoggerFactory, Depends(_get_logger_factory)],
     text_generator: Annotated[TextGenerator, Depends(_get_text_generator)],
 ) -> SessionSummaryService:
-    logger = logger_factory(SessionSummaryService.__module__)
     return SessionSummaryService(
         text_generator=text_generator,
-        logger=logger,
+        logger_factory=logger_factory,
     )
 
 
@@ -77,12 +76,11 @@ def get_chat_session_service(
         SessionSummaryService, Depends(_get_session_summary_service)
     ],
 ) -> ChatSessionService:
-    logger = logger_factory(ChatSessionService.__module__)
     return ChatSessionService(
         history_index=history_index,
         service=session_summary_service,
         repository=session_repository,
-        logger=logger,
+        logger_factory=logger_factory,
         clock=clock,
     )
 

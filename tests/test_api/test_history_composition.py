@@ -4,7 +4,7 @@ import pytest
 from fastapi import FastAPI
 
 from app.application.exceptions import SessionHistoryIndexError
-from app.bootstrap import providers
+from app.bootstrap.providers import qdrant
 from app.infrastructure.vectorstore.config import SessionHistoryConfig
 from app.lifespan import lifespan
 
@@ -18,9 +18,9 @@ async def test_provider_validates_history_before_providing_it(
     if invalid:
         index.validate_collection.side_effect = SessionHistoryIndexError()
     index_factory = MagicMock(return_value=index)
-    monkeypatch.setattr(providers, "QDrantSessionHistoryIndex", index_factory)
+    monkeypatch.setattr(qdrant, "QDrantSessionHistoryIndex", index_factory)
 
-    dependency = providers.build_history_index(
+    dependency = qdrant.build_history_index(
         client=MagicMock(),
         embeddings=MagicMock(),
         config=SessionHistoryConfig("session-history", 768),

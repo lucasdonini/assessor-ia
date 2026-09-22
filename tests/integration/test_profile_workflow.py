@@ -10,6 +10,7 @@ from pymongo import AsyncMongoClient
 from qdrant_client import QdrantClient
 from testcontainers.community.mongodb import MongoDbContainer
 
+from app.api.dependencies import get_profile_service, get_user_service
 from app.api.routes.profile import router
 from app.application.models.user_context import UserContext
 from app.infrastructure.agents._core.schemas.tool_response import ToolSuccess
@@ -27,6 +28,7 @@ from app.infrastructure.vectorstore.repositories.profile_preferences_index impor
     QDrantProfilePreferencesIndex,
 )
 from app.services.user_profile_service import UserProfileService
+from app.services.user_service import UserService
 
 pytestmark = pytest.mark.integration
 
@@ -57,10 +59,11 @@ async def test_http_mongodb_qdrant_and_tool_workflow() -> None:
             )
             first, second = uuid4(), uuid4()
             app = FastAPI()
-            app.state.profile_service = service
-            app.state.user_repository = AsyncMock()
-            app.state.user_repository.exists.side_effect = lambda uid: (
-                uid in {first, second}
+            user_repository = AsyncMock()
+            user_repository.exists.side_effect = lambda uid: uid in {first, second}
+            app.dependency_overrides[get_profile_service] = lambda: service
+            app.dependency_overrides[get_user_service] = lambda: UserService(
+                user_repository
             )
             app.include_router(router, prefix="/api")
             tool = ConsultProfileTool(

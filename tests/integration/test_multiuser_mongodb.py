@@ -71,20 +71,35 @@ async def test_mongodb_owner_filters_and_immutable_session_owner():
             from fastapi import FastAPI
             from httpx import ASGITransport, AsyncClient
 
-            from app.api.dependencies import get_chat_session_service, get_graph
+            from app.api.dependencies import (
+                bind_session_logging_context,
+                coordinate_session,
+                get_chat_session_service,
+                get_graph,
+                get_user_service,
+            )
             from app.api.middleware.exception_handler import register_exception_handlers
             from app.api.routes.chat import router
             from app.infrastructure.logger import bind_session_context
-            from app.infrastructure.session_coordinator import SessionCoordinator
+            from app.services.user_service import UserService
 
             app = FastAPI()
-            app.state.session_coordinator = SessionCoordinator()
-            app.state.session_context_factory = bind_session_context
-            app.state.user_repository = AsyncMock()
-            app.state.user_repository.exists.return_value = True
+            user_repository = AsyncMock()
+            user_repository.exists.return_value = True
             graph = AsyncMock()
             app.dependency_overrides[get_graph] = lambda: graph
             app.dependency_overrides[get_chat_session_service] = lambda: service
+            app.dependency_overrides[get_user_service] = lambda: UserService(
+                user_repository
+            )
+
+            async def override_context_dependencies():
+                yield
+
+            app.dependency_overrides[bind_session_logging_context] = (
+                override_context_dependencies
+            )
+            app.dependency_overrides[coordinate_session] = override_context_dependencies
             register_exception_handlers(
                 app, logger=MagicMock(), session_context_factory=bind_session_context
             )

@@ -23,6 +23,7 @@ dependencies = [
     "uvicorn>=0.52.3",
     "qdrant-client>=1.19.0",
     "dishka>=1.10.1",
+    "mcp[cli]>=2.2.0",
 ]
 
 [dependency-groups]

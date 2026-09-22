@@ -6,3 +6,8 @@
 /logs
 .vscode/
 *_tmp_*/
+.pytest_cache/
+.pytest_tmp*/
+.mypy_cache*/
+.ruff_cache/
+.codex/config.toml

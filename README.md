@@ -7,6 +7,44 @@ O PostgreSQL armazena transações, o MongoDB armazena a sessão e o histórico 
 chat, e o Qdrant mantém os embeddings do FAQ e dos resumos de sessões. As respostas
 podem ser produzidas por modelos Gemini e Groq.
 
+## Servidor MCP local para ChatGPT / Codex
+
+O servidor em `app/mcp_server.py` publica as nove ferramentas do agente
+financeiro por `stdio`: `total_balance`, `daily_balance`,
+`search_transactions`, `add_transaction`, `update_transaction`,
+`delete_transaction`, `restore_transaction`, `consult_profile` e
+`search_history`. As quatro operações de escrita exigem confirmação no cliente.
+`delete_transaction` cancela o lançamento; `restore_transaction` reverte o
+cancelamento. O servidor reutiliza os serviços e as ferramentas do agente, sem
+iniciar o FastAPI ou o grafo.
+
+Esta integração é **local e de um usuário por processo**. Configure
+`ASSESSOR_MCP_USER_ID` com o UUID de um usuário existente. Com a API em execução,
+`GET /api/users` lista os usuários cadastrados. O servidor valida o UUID no
+PostgreSQL ao iniciar e vincula esse usuário a cada chamada. O modelo não pode
+escolher outro `user_id` pelos argumentos das ferramentas. Quem puder iniciar o
+processo com sua configuração local terá acesso às capacidades desse usuário;
+portanto, não compartilhe a configuração nem use este modo para vários usuários.
+A conta ChatGPT não é usada como identidade do banco.
+
+No aplicativo de desktop ChatGPT, abra **Settings → MCP servers → Add server**,
+escolha **STDIO** e informe o Python de `.venv` e o módulo
+`app.mcp_server`. Também é possível configurar o Codex pelo `config.toml`
+do usuário. Use o diretório absoluto do projeto como `cwd`, o executável absoluto
+do Python do ambiente virtual como `command`, `args` com `-m` e
+`app.mcp_server`, e `env` com `ASSESSOR_MCP_USER_ID`. Configure
+`default_tools_approval_mode = "writes"` para pedir aprovação nas quatro
+operações que alteram dados. Mantenha caminhos pessoais e o UUID no arquivo
+local `~/.codex/config.toml`; o `.codex/config.toml` do projeto é ignorado pelo
+Git. O ChatGPT na web não lê essa configuração local.
+
+Execute `uv sync` no projeto e deixe PostgreSQL, MongoDB e Qdrant disponíveis.
+O processo usa a configuração existente no `.env` da raiz. Reinicie o cliente
+após adicionar o servidor; o catálogo deve mostrar nove ferramentas. Teste
+primeiro uma leitura de saldo para o mesmo UUID usado no chat do Assessor.
+Para testar gravações, use dados de teste e aprove cada chamada no Codex.
+O servidor reserva `stdout` para MCP e envia seus logs para `stderr`.
+
 ## Requisitos
 
 - Python 3.14;

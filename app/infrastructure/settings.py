@@ -35,7 +35,7 @@ class PydanticSettings(BaseSettings):
     faq_search_score_threshold: float = Field(default=0.52, ge=0, le=1)
     ingest_faq_pdf: bool = False
 
-    model_config = SettingsConfigDict(env_file=".env", extra="forbid")
+    model_config = SettingsConfigDict(env_file=".env", extra="allow")
 
     def _validate_missing_keys(self) -> None:
         missing_keys = [

@@ -7,12 +7,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { sendChatMessage } from './api/chat'
 import { finalizeSession } from './api/session'
 import App from './App'
+import { fetchMonitor } from './api/monitor'
 
 const SESSION_ID = '123e4567-e89b-12d3-a456-426614174000'
 const NEXT_SESSION_ID = '123e4567-e89b-12d3-a456-426614174001'
 const USER_ID = '123e4567-e89b-12d3-a456-426614174099'
 const SESSION_STORAGE_KEY = `assessor-ia.session-id:${USER_ID}`
 vi.mock('./api/user', () => ({ listUsers: vi.fn(), createUser: vi.fn() }))
+vi.mock('./api/monitor', () => ({ fetchMonitor: vi.fn() }))
 
 vi.mock('./api/chat', () => ({
   sendChatMessage: vi.fn(),
@@ -51,6 +53,17 @@ function deferred<T>() {
 }
 
 describe('App', () => {
+  it('preserva o rascunho e a sessão ao visitar o monitor', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetchMonitor).mockRejectedValue(new Error('offline'))
+    const { randomUUID } = await renderApp()
+    await user.type(screen.getByLabelText('Sua mensagem'), 'rascunho')
+    await user.click(screen.getByRole('button', { name: 'Monitoramento' }))
+    expect(screen.getByRole('heading', { name: 'Monitoramento' })).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Voltar ao chat' }))
+    expect((screen.getByLabelText('Sua mensagem') as HTMLTextAreaElement).value).toBe('rascunho')
+    expect(randomUUID).toHaveBeenCalledTimes(1)
+  })
   it('abre o perfil do usuário selecionado e volta ao chat', async () => {
     const user = userEvent.setup()
     await renderApp()

@@ -1,0 +1,21 @@
+.monitor { color: var(--text, #d6e4e8); padding: 24px; max-width: 1200px; margin: auto; }
+.monitor p { color: #8aa3b0; font-size: .85rem; line-height: 1.5; }
+.monitor__header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.monitor button { background: #163038; color: #8ce5d6; border: 1px solid #365b63; border-radius: 8px; padding: 8px 14px; margin: 4px; cursor: pointer; }
+.monitor__metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.monitor__panel { background: #101c24; border: 1px solid #29404b; border-radius: 10px; padding: 14px; margin-bottom: 12px; overflow-x: auto; }
+.monitor__panel h2 { font-size: 1rem; }
+.monitor__metrics strong { display: block; margin-top: 8px; overflow-wrap: anywhere; }
+.monitor__metrics span { font-size: .8rem; color: #8aa3b0; }
+.monitor__slo { padding: 14px; border: 1px solid #45606a; border-radius: 10px; }
+.monitor__slo.is-ok { border-color: #3da77e; }
+.monitor__slo.is-error { border-color: #e37878; }
+.monitor__charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.monitor svg { width: 100%; stroke: #75d2c4; fill: #75d2c4; stroke-width: 2; }
+.monitor__limit { stroke: #e3ad75; stroke-dasharray: 6; }
+.monitor table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.monitor th, .monitor td { text-align: left; padding: 10px; border-bottom: 1px solid #29404b; vertical-align: top; overflow-wrap: anywhere; }
+.monitor small { display: block; }
+.monitor summary { cursor: pointer; }
+.monitor :focus-visible { outline: 2px solid #8ce5d6; outline-offset: 3px; }
+@media (max-width: 700px) { .monitor__charts { grid-template-columns: 1fr; } .monitor__header { flex-direction: column; align-items: flex-start; } .monitor { padding: 12px; } }

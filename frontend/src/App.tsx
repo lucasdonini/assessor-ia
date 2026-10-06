@@ -11,6 +11,7 @@ import { sendChatMessage } from './api/chat'
 import { finalizeSession } from './api/session'
 import { MarkdownResponse } from './components/MarkdownResponse'
 import { Profile } from './components/Profile'
+import { Monitor } from './components/Monitor'
 import './App.css'
 
 const SESSION_STORAGE_KEY = 'assessor-ia.session-id'
@@ -353,7 +354,7 @@ function App() {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
-  const [view, setView] = useState<'chat' | 'profile'>('chat')
+  const [view, setView] = useState<'chat' | 'profile' | 'monitor'>('chat')
 
   useEffect(() => {
     let active = true
@@ -409,18 +410,22 @@ function App() {
           Perfil
         </button>
       )}
+      {userId && view !== 'monitor' && <button className="header__reset" type="button" onClick={() => setView('monitor')}>Monitoramento</button>}
       {error && <><p className="console__error user-picker__error" role="alert">{error}</p>
         <button className="header__reset" type="button" onClick={() => setReload((value) => value + 1)}>Recarregar usuários</button></>}
     </section>
-    {userId && view === 'profile' ? (
+    {userId && <div hidden={view !== 'chat'}><Chat key={userId} userId={userId} /></div>}
+    {userId && view === 'monitor' ? (
+      <Monitor key={userId} userId={userId} onBack={() => setView('chat')} />
+    ) : userId && view === 'profile' ? (
       <Profile key={userId} userId={userId} onBack={() => setView('chat')} />
-    ) : userId ? <Chat key={userId} userId={userId} /> : (
+    ) : !userId ? (
       <section className="user-welcome" aria-label="Boas-vindas">
         <h1 className="header__title">assistente<span className="header__cursor">_</span></h1>
         <p className="empty__eyebrow">{loading ? '// conectando' : '// vamos começar'}</p>
         <p className="empty__text">{loading ? 'Carregando seus usuários…' : 'Crie um usuário para começar sua conversa.'}</p>
       </section>
-    )}
+    ) : null}
     </div>
   </main>
 }

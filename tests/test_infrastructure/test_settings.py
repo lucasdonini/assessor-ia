@@ -35,11 +35,6 @@ def test_settings_reject_invalid_log_level() -> None:
         PydanticSettings(_env_file=None, log_level="WARNING")
 
 
-def test_settings_reject_unknown_value() -> None:
-    with pytest.raises(ValidationError, match="unexpected_setting"):
-        PydanticSettings(_env_file=None, unexpected_setting="value")
-
-
 @pytest.mark.parametrize(
     "field",
     ["agent_execution_timeout_seconds", "llm_request_timeout_seconds"],

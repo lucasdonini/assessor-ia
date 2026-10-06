@@ -1,7 +1,7 @@
 # [001] Implementation plan
 
 Specification: [spec.md](spec.md)
-Status: Proposed; no runtime changes authorized
+Status: Local track delivered; user authorized implementation and stacked PR
 
 ## Boundaries and file map
 
@@ -42,8 +42,8 @@ Names below are proposed, not generated implementation.
    alive across navigation. Abort stale requests and clean polling on unmount/user
    change; a completed request schedules the next poll to prevent overlap.
 7. Validate synthetic outcomes and existing regressions, then document observed
-   boundaries and limitations. Runtime implementation requires the user's explicit
-   code request under AGENTS.md.
+   boundaries and limitations. Implementation and Git operations were explicitly
+   authorized by the user on 2026-10-06.
 8. Optional: after separate authorization for configuration, verify LangSmith SDK
    setup and export redaction. Prefer externally supplied process environment if
    viable. If dotenv-backed settings are needed, specify narrowly typed settings
@@ -73,7 +73,8 @@ optional and must not export private data.
 The feature introduces no durable data. Collector failures preserve existing chat
 behavior and emit safe diagnostics; external tracing is independently disableable.
 Do not change `.env`, deployment files, dependency configuration or credentials
-without specific authorization. No commits or pushes are part of this request.
+without specific authorization. Commits and a stacked PR are authorized; deployment
+and external tracing activation are not part of this delivery.
 
 Primary risks: callback propagation, captured classifier errors, root trace PII,
 unknown Qwen pricing/usage, late callbacks, snapshot races and React unmounts

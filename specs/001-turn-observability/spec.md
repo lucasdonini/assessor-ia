@@ -1,8 +1,10 @@
 # [001] Turn observability and monitoring
 
-Status: Draft
+Status: Implemented (local monitoring track); optional external tracing deferred
 Created: 2026-10-06
-Implementation authorization: not granted; this delivery contains documentation only.
+Implementation authorization: user authorized implementation, commits, push and a
+pull request stacked on PR #28 on 2026-10-06. No runtime configuration edits were
+requested or performed.
 
 ## Problem and verified starting state
 
@@ -170,8 +172,11 @@ Cancellation is terminal but outside the eligible denominator. No durable storag
 historical reconstruction or multi-worker aggregation is promised.
 
 Keep active data separate from the completed window. Bound per-turn detail to
-1000 node/model records, keep aggregate counters beyond that cap and mark detail
-truncation. Remove unfinished runs on timeout/cancellation and ignore late events.
+1000 node records and 1000 model records, including pending attempts. At the cap,
+mark capture incomplete and detail truncated; usage and cost become known lower
+bounds instead of continuing unbounded per-model detail. Terminal status, wall
+duration and fallback activation counters remain available. Remove unfinished
+runs on timeout/cancellation and ignore late events.
 Completed-window capacity and detail caps bound retained evidence; active-turn
 count scales with admitted concurrent graph executions and must not be described
 as a process-wide hard memory limit. No new admission-control policy is introduced.
@@ -180,15 +185,18 @@ as a process-wide hard memory limit. No new admission-control policy is introduc
 
 | ID | Question / assumption | Impact / resolution |
 | --- | --- | --- |
-| Q-001 | Three actual model rates | Official prices are unverified here; verify during implementation. Unknown rates remain unknown and do not block basic collection. Do not copy the lesson's two-model table. |
-| Q-002 | Callback propagation in installed async agents/direct text generator | Blocking technical spike for complete model accounting; prove with mocks before deciding explicit config forwarding. |
+| Q-001 | Three actual model rates | Gemini and GPT-OSS rates verified against official sources on 2026-10-06. Qwen 3.6 is absent from the current Groq rate table and listed in deprecations; it remains unpriced. No model migration is included. |
+| Q-002 | Callback propagation in installed async agents/direct text generator | Resolved by deterministic tests exercising nested `create_agent` and direct `LLMTextGenerator`; no explicit forwarding changes required. |
 | Q-003 | LangSmith runtime environment and redaction | Optional track remains Draft until SDK behavior is checked against official documentation and installed code, and configuration work is explicitly authorized. Do not relax `extra="forbid"` globally. |
 | Q-004 | User-scoped monitor rather than operator-global view | Proposed compatibility decision based on current ownership contracts. Global operator monitoring requires a separately specified access model. Demo UUID selection does not provide authentication. |
 | Q-005 | Last 50 global turns filtered by user | Deliberate bounded-memory tradeoff: another user's traffic can evict older data; UI must say this. No promise of 50 turns per user. |
 
 ## Completion criteria
 
-Each requirement has acceptance evidence in [tasks.md](tasks.md), API/UI contracts
+Business decisions are collected in [decisions.md](decisions.md) for critique
+before code review. Each requirement has acceptance evidence in [tasks.md](tasks.md), API/UI contracts
 match delivered behavior, relevant checks and limitations are recorded, and
 blocking technical questions are resolved. Local feature completion does not imply
-external tracing is enabled. Draft documentation does not authorize implementation.
+external tracing is enabled. No new tracing exporter or external configuration was
+added. Existing SDK auto-tracing behavior, if independently configured by the
+operator, is outside the local collector's privacy guarantee.

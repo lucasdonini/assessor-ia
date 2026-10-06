@@ -283,6 +283,15 @@ aplicação web estão em [`context.md`](context.md).
 
 ## Contribuição
 
+### Specification-Driven Development (SDD)
+
+The [SDD guide](specs/README.md) defines the specification-driven workflow in
+English. Start with the [existing project baseline](specs/baseline.md), then use
+the [specification](specs/templates/spec.md), [implementation plan](specs/templates/plan.md),
+and [delivery tasks](specs/templates/tasks.md) templates for a concrete change.
+Each feature records requirements, acceptance scenarios, and verification evidence
+without changing the application's existing architecture.
+
 Crie uma branch por alteração, mantenha commits pequenos e abra um pull request
 para `main`. Não inclua arquivos `.env`, logs ou outros artefatos locais no
 versionamento.

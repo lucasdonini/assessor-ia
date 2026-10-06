@@ -1,12 +1,14 @@
 import asyncio
 import time
 import uuid
-from collections.abc import Sequence
-from typing import Any, cast
+from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager, contextmanager, nullcontext
+from typing import Any, Iterator, cast
 
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import AIMessage as LangGraphAIMessage
 from langchain_core.messages import HumanMessage as LangGraphHumanMessage
-from langchain_core.runnables import RunnableLambda
+from langchain_core.runnables import RunnableConfig, RunnableLambda
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.graph import END, START, StateGraph
@@ -14,12 +16,14 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Overwrite
 
 from app.application.models.agent_execution import AgentExecutionResult
+from app.application.models.observability import Outcome
 from app.application.models.user_context import UserContext
 from app.application.ports.logger import (
     InteractionIncrementer,
     LoggerFactory,
     TraceContextFactory,
 )
+from app.application.ports.observability import TurnRecorder
 from app.domain.model.chat_entry import AssistantMessage, HumanMessage
 
 from ._core.contracts.agent_node import AgentNode
@@ -41,6 +45,7 @@ class AgentGraphImpl:
         logger_factory: LoggerFactory,
         trace_context_factory: TraceContextFactory,
         interaction_incrementer: InteractionIncrementer,
+        recorder: TurnRecorder | None = None,
     ) -> None:
         self._input_guardrail = input_guardrail
         self._router = router
@@ -51,6 +56,7 @@ class AgentGraphImpl:
         self._logger = logger_factory(__name__)
         self._trace_context_factory = trace_context_factory
         self._interaction_incrementer = interaction_incrementer
+        self._recorder = recorder
         self._specialists_by_name = {
             specialist.name: specialist for specialist in self._specialists
         }
@@ -105,7 +111,33 @@ class AgentGraphImpl:
         async def invoke(state: GraphState) -> dict[GraphStateKeys, Any]:
             start_time = time.perf_counter()
             try:
-                return await node(state)
+                with self._observation(lambda recorder: recorder.node(node.name)):
+                    result = await node(state)
+                    if (
+                        self._recorder is not None
+                        and node.name == self._input_guardrail.name
+                    ):
+                        reason = result.get(GraphStateKeys.GUARDRAIL_REASON)
+                        if reason:
+                            status: Outcome = (
+                                "error"
+                                if reason
+                                in {
+                                    "classificador_indisponivel",
+                                    "classificacao_indeterminada",
+                                }
+                                else "blocked"
+                            )
+                            self._record(
+                                lambda recorder: recorder.classify(status, str(reason))
+                            )
+                        elif result.get(GraphStateKeys.ROUTE) == END:
+                            self._record(
+                                lambda recorder: recorder.classify(
+                                    "blocked", "input_refused"
+                                )
+                            )
+                    return result
             finally:
                 elapsed_ms = round((time.perf_counter() - start_time) * 1000)
                 self._logger.debug(
@@ -118,6 +150,39 @@ class AgentGraphImpl:
                 )
 
         return RunnableLambda(invoke)
+
+    def _record(self, operation: Callable[[TurnRecorder], None]) -> None:
+        if self._recorder is not None:
+            try:
+                operation(self._recorder)
+            except Exception:
+                self._logger.warning("Telemetry capture unavailable")
+
+    @contextmanager
+    def _observation(
+        self, operation: Callable[[TurnRecorder], AbstractContextManager[None]]
+    ) -> Iterator[None]:
+        manager: AbstractContextManager[None] = nullcontext()
+        if self._recorder is not None:
+            try:
+                manager = operation(self._recorder)
+                manager.__enter__()
+            except Exception:
+                self._logger.warning("Telemetry capture unavailable")
+                manager = nullcontext()
+        try:
+            yield
+        except BaseException as exc:
+            try:
+                manager.__exit__(type(exc), exc, exc.__traceback__)
+            except BaseException:
+                pass
+            raise
+        else:
+            try:
+                manager.__exit__(None, None, None)
+            except Exception:
+                self._logger.warning("Telemetry finalization unavailable")
 
     def _add_edges(self) -> None:
         self._graph.add_edge(START, self._input_guardrail.name)
@@ -133,6 +198,8 @@ class AgentGraphImpl:
                 return END
 
             route = text.split("\n", 1)[0].split("=", 1)[1].strip()
+            if route in self._specialists_by_name:
+                self._record(lambda recorder: recorder.select_route(route))
             return route if route in self._specialists_by_name else END
 
         def redirect_from_input_guardrail(state: GraphState) -> str:
@@ -161,7 +228,15 @@ class AgentGraphImpl:
     ) -> AgentExecutionResult:
         self._interaction_incrementer()
         trace_id = str(uuid.uuid4())
-        with self._trace_context_factory(trace_id), bind_user_context(context):
+        with (
+            self._trace_context_factory(trace_id),
+            bind_user_context(context),
+            self._observation(
+                lambda recorder: recorder.turn(
+                    trace_id, str(context.user_id), session_id
+                )
+            ),
+        ):
             message = LangGraphHumanMessage(id=trace_id, content=user_input.content)
             self._logger.info(
                 "User input received",
@@ -174,17 +249,27 @@ class AgentGraphImpl:
                 "called_agents": Overwrite([]),
                 "route": "",
                 "pii_map": {},
+                "guardrail_reason": None,
             }
 
             try:
+                config: RunnableConfig = {
+                    "run_id": uuid.UUID(trace_id),
+                    "configurable": {"thread_id": f"{context.user_id}:{session_id}"},
+                }
+                if self._recorder is not None:
+                    try:
+                        config["callbacks"] = [
+                            callback
+                            for callback in self._recorder.callbacks
+                            if isinstance(callback, BaseCallbackHandler)
+                        ]
+                    except Exception:
+                        self._logger.warning("Telemetry callbacks unavailable")
                 async with asyncio.timeout(self._execution_timeout_seconds):
                     final_state_raw = await self._agent_flux.ainvoke(
                         initial_state,
-                        config={
-                            "configurable": {
-                                "thread_id": f"{context.user_id}:{session_id}"
-                            }
-                        },
+                        config=config,
                     )
             except TimeoutError:
                 self._logger.error(

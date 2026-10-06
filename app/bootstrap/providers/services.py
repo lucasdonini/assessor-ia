@@ -2,6 +2,7 @@ from dishka import Provider, Scope, provide
 
 from app.application.ports.clock import Clock
 from app.application.ports.logger import LoggerFactory
+from app.application.ports.observability import ObservationReader, TurnRecorder
 from app.application.ports.profile_preferences_index import ProfilePreferencesIndex
 from app.application.ports.session_history_index import SessionHistoryIndex
 from app.application.ports.text_generator import TextGenerator
@@ -14,10 +15,12 @@ from app.application.repositories.user_repository import UserRepository
 from app.infrastructure.clock import SystemClock
 from app.infrastructure.config import AgentRuntimeConfig
 from app.infrastructure.llms import fast_llm
+from app.infrastructure.observability import InMemoryObservability
 from app.infrastructure.session_coordinator import SessionCoordinator
 from app.infrastructure.text_generator import LLMTextGenerator
 from app.services.chat_history_service import ChatHistoryService
 from app.services.chat_session_service import ChatSessionService
+from app.services.monitoring_service import MonitoringService
 from app.services.session_summary_service import SessionSummaryService
 from app.services.transaction_service import TransactionService
 from app.services.user_profile_service import UserProfileService
@@ -26,6 +29,22 @@ from app.services.user_service import UserService
 
 class ServicesProvider(Provider):
     scope = Scope.APP
+
+    @provide
+    def observability(self) -> InMemoryObservability:
+        return InMemoryObservability()
+
+    @provide
+    def turn_recorder(self, collector: InMemoryObservability) -> TurnRecorder:
+        return collector
+
+    @provide
+    def observation_reader(self, collector: InMemoryObservability) -> ObservationReader:
+        return collector
+
+    @provide
+    def monitoring(self, reader: ObservationReader) -> MonitoringService:
+        return MonitoringService(reader)
 
     @provide
     def clock(self, config: AgentRuntimeConfig) -> Clock:

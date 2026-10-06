@@ -8,6 +8,7 @@ from langchain.agents.middleware import (
 from langchain.chat_models import BaseChatModel
 
 from app.application.ports.logger import LoggerFactory
+from app.application.ports.observability import TurnRecorder
 
 
 def _iter_exception_chain(exc: BaseException) -> Iterator[BaseException]:
@@ -30,10 +31,15 @@ def is_rate_limit_error(exc: Exception) -> bool:
 
 class FallbackOn429Middleware(AgentMiddleware):
     def __init__(
-        self, fallback_llm: BaseChatModel, *, logger_factory: LoggerFactory
+        self,
+        fallback_llm: BaseChatModel,
+        *,
+        logger_factory: LoggerFactory,
+        recorder: TurnRecorder | None = None,
     ) -> None:
         self._fallback_llm = fallback_llm
         self._logger = logger_factory(__name__)
+        self._recorder = recorder
 
     async def awrap_model_call(
         self,
@@ -56,5 +62,10 @@ class FallbackOn429Middleware(AgentMiddleware):
                 },
             )
             fallback_request = request.override(model=self._fallback_llm)
+            if self._recorder is not None:
+                try:
+                    self._recorder.fallback()
+                except Exception:
+                    self._logger.warning("Fallback telemetry unavailable")
 
             return await handler(fallback_request)

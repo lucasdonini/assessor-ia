@@ -8,6 +8,7 @@ from app.application.ports.logger import (
     LoggerFactory,
     TraceContextFactory,
 )
+from app.application.ports.observability import TurnRecorder
 from app.application.ports.text_generator import TextGenerator
 from app.infrastructure.agents import build_agent_graph
 from app.infrastructure.config import AgentRuntimeConfig
@@ -32,6 +33,7 @@ class AgentGraphProvider(Provider):
         interaction_incrementer: InteractionIncrementer,
         clock: Clock,
         config: AgentRuntimeConfig,
+        recorder: TurnRecorder,
     ) -> AgentGraph:
         return build_agent_graph(
             transaction_service=transaction_service,
@@ -44,4 +46,5 @@ class AgentGraphProvider(Provider):
             interaction_incrementer=interaction_incrementer,
             clock=clock,
             execution_timeout_seconds=config.execution_timeout_seconds,
+            recorder=recorder,
         )

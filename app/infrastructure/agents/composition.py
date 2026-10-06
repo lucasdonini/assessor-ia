@@ -7,6 +7,7 @@ from app.application.ports.logger import (
     LoggerFactory,
     TraceContextFactory,
 )
+from app.application.ports.observability import TurnRecorder
 from app.application.ports.text_generator import TextGenerator
 from app.infrastructure.llms import fast_llm, llm_gemini, llm_groq
 from app.services.chat_history_service import ChatHistoryService
@@ -47,10 +48,12 @@ def build_agent_graph(
     interaction_incrementer: InteractionIncrementer,
     clock: Clock,
     execution_timeout_seconds: float = 120.0,
+    recorder: TurnRecorder | None = None,
 ) -> AgentGraphImpl:
     specialist_fallback = FallbackOn429Middleware(
         llm_groq,
         logger_factory=logger_factory,
+        recorder=recorder,
     )
 
     specialist_factory = LangChainAgentFactory(
@@ -197,4 +200,5 @@ def build_agent_graph(
         logger_factory=logger_factory,
         trace_context_factory=trace_context_factory,
         interaction_incrementer=interaction_incrementer,
+        recorder=recorder,
     )

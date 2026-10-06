@@ -150,6 +150,7 @@ async def test_graph_times_node_with_injected_logger() -> None:
     logger = MagicMock(spec=Logger)
     graph = AgentGraphImpl.__new__(AgentGraphImpl)
     graph._logger = logger
+    graph._recorder = None
     timed_node = graph._timed_node(_StubNode())
 
     result = await timed_node.ainvoke(

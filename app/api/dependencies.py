@@ -14,6 +14,7 @@ from app.infrastructure.logger import (
 )
 from app.infrastructure.session_coordinator import SessionCoordinator
 from app.services.chat_session_service import ChatSessionService
+from app.services.monitoring_service import MonitoringService
 from app.services.user_profile_service import UserProfileService
 from app.services.user_service import UserService
 
@@ -21,6 +22,11 @@ from app.services.user_service import UserService
 @inject
 def get_graph(graph: FromDishka[AgentGraph]) -> AgentGraph:
     return graph
+
+
+@inject
+def get_monitoring_service(service: FromDishka[MonitoringService]) -> MonitoringService:
+    return service
 
 
 @inject

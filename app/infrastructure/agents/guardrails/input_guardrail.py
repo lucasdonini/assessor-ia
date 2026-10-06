@@ -148,6 +148,7 @@ class InputGuardrailNode(AgentNode):
             )
             return {
                 GraphStateKeys.ROUTE: END,
+                GraphStateKeys.GUARDRAIL_REASON: result.reason,
                 GraphStateKeys.CALLED_AGENTS: [self.name],
                 GraphStateKeys.MESSAGES: [AIMessage(content=result.message)],
             }
@@ -158,6 +159,7 @@ class InputGuardrailNode(AgentNode):
         )
         return {
             GraphStateKeys.ROUTE: self._approved_route,
+            GraphStateKeys.GUARDRAIL_REASON: None,
             GraphStateKeys.CALLED_AGENTS: [self.name],
             GraphStateKeys.PII_MAP: pii_map,
             GraphStateKeys.MESSAGES: [

@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import nullcontext
 from typing import Any, ClassVar
 from unittest.mock import MagicMock
@@ -14,6 +15,8 @@ from app.infrastructure.agents._core.contracts.agent_node import AgentNode
 from app.infrastructure.agents._core.specialist import SpecialistRegistration
 from app.infrastructure.agents._core.state import GraphState, GraphStateKeys
 from app.infrastructure.agents.graph import AgentGraphImpl
+from app.infrastructure.observability import InMemoryObservability
+from app.services.monitoring_service import MonitoringService
 from tests.user_identity import TEST_USER_ID
 
 
@@ -62,6 +65,99 @@ class _Orquestrator(_Financial):
 
 class _OutputGuardrail(_Financial):
     name: ClassVar[str] = "output_guardrail"
+
+
+@pytest.mark.asyncio
+async def test_observed_graph_records_selected_edge_and_turn_local_nodes(graph):
+    collector = InMemoryObservability()
+    graph._recorder = collector
+    await graph.execute_agent_flux(
+        HumanMessage(content="financial"), "same", context=UserContext(TEST_USER_ID)
+    )
+    await graph.execute_agent_flux(
+        HumanMessage(content="unknown"), "same", context=UserContext(TEST_USER_ID)
+    )
+    turns = collector.snapshot(str(TEST_USER_ID)).turns
+    assert [turn.route for turn in turns] == ["financial", "none"]
+    assert [n.name for n in turns[0].nodes] == [
+        "input_guardrail",
+        "router",
+        "financial",
+        "orquestrator",
+        "output_guardrail",
+    ]
+    assert [n.name for n in turns[1].nodes] == ["input_guardrail", "router"]
+    assert turns[0].turn_id != turns[1].turn_id
+
+
+@pytest.mark.asyncio
+async def test_observed_graph_timeout_and_cancellation(graph, monkeypatch):
+    collector = InMemoryObservability()
+    graph._recorder = collector
+
+    graph._execution_timeout_seconds = 0.01
+
+    # Accept config as in the production graph call.
+    async def invoke(*args, **kwargs):
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(graph._agent_flux, "ainvoke", invoke)
+    with pytest.raises(TimeoutError):
+        await graph.execute_agent_flux(
+            HumanMessage(content="x"), "s", context=UserContext(TEST_USER_ID)
+        )
+    assert collector.snapshot(str(TEST_USER_ID)).turns[0].status == "error"
+    assert collector.snapshot(str(TEST_USER_ID)).in_flight == 0
+    graph._execution_timeout_seconds = 30
+    task = asyncio.create_task(
+        graph.execute_agent_flux(
+            HumanMessage(content="x"), "s", context=UserContext(TEST_USER_ID)
+        )
+    )
+    await asyncio.sleep(0)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert collector.snapshot(str(TEST_USER_ID)).turns[-1].status == "cancelled"
+    assert collector.snapshot(str(TEST_USER_ID)).in_flight == 0
+
+
+@pytest.mark.asyncio
+async def test_collector_enter_failure_does_not_change_chat(graph):
+    collector = MagicMock()
+    collector.turn.side_effect = RuntimeError("collector failed")
+    collector.node.side_effect = RuntimeError("collector failed")
+    collector.callbacks = ()
+    graph._recorder = collector
+    result = await graph.execute_agent_flux(
+        HumanMessage(content="financial"), "s", context=UserContext(TEST_USER_ID)
+    )
+    assert result.message.content == "output_guardrail"
+
+
+@pytest.mark.asyncio
+async def test_classifier_degradation_is_error_without_changing_reply(
+    graph, monkeypatch
+):
+    collector = InMemoryObservability()
+    graph._recorder = collector
+
+    async def classify(self, state):
+        return {
+            GraphStateKeys.ROUTE: END,
+            GraphStateKeys.GUARDRAIL_REASON: "classificador_indisponivel",
+            GraphStateKeys.CALLED_AGENTS: [self.name],
+            GraphStateKeys.MESSAGES: [AIMessage(content="Tente novamente.")],
+        }
+
+    monkeypatch.setattr(_InputGuardrail, "__call__", classify)
+    result = await graph.execute_agent_flux(
+        HumanMessage(content="x"), "s", context=UserContext(TEST_USER_ID)
+    )
+    assert result.message.content == "Tente novamente."
+    assert (
+        MonitoringService(collector).get_monitor(str(TEST_USER_ID)).summary.errors == 1
+    )
 
 
 @pytest.fixture

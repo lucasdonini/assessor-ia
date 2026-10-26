@@ -1,12 +1,33 @@
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _DUMMY_API_KEY = "No API key provided"
 
 
 class PydanticSettings(BaseSettings):
+    monitor_operator_emails: tuple[str, ...] = ()
+    langsmith_tracing: bool = False
+    langsmith_api_key: SecretStr = SecretStr("")
+    langsmith_project: str = "assessor-ia"
+
+    @field_validator("monitor_operator_emails")
+    @classmethod
+    def validate_operator_emails(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        normalized = tuple(sorted({value.strip().casefold() for value in values}))
+        for email in normalized:
+            if (
+                email.count("@") != 1
+                or any(char.isspace() for char in email)
+                or any(char in email for char in "*<>;,:")
+                or not all(email.split("@"))
+            ):
+                raise ValueError(
+                    "Configure operator emails as complete email addresses"
+                )
+        return normalized
+
     google_client_id: str = ""
     google_client_secret: SecretStr = SecretStr("")
     google_calendar_client_id: str = ""

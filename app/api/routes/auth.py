@@ -10,9 +10,11 @@ from app.api.auth import (
     authenticated_session,
     get_auth_service,
 )
+from app.api.dependencies import get_monitor_access
 from app.application.models.google_identity import WebSession
 from app.infrastructure.config import GoogleConfig
 from app.services.auth_service import AuthService
+from app.services.monitor_service import MonitorAccess
 
 router = APIRouter()
 
@@ -34,8 +36,14 @@ def set_cookie(
 @router.get("/auth/me")
 async def me(
     session: Annotated[WebSession, Depends(authenticated_session)],
-) -> dict[str, str]:
-    return {"id": str(session.user_id), "email": session.email, "csrf": session.csrf}
+    access: Annotated[MonitorAccess, Depends(get_monitor_access)],
+) -> dict[str, str | bool]:
+    return {
+        "id": str(session.user_id),
+        "email": session.email,
+        "csrf": session.csrf,
+        "can_monitor": access.allows(session.email),
+    }
 
 
 @router.get("/auth/google/start")

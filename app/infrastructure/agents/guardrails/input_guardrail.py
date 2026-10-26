@@ -8,6 +8,7 @@ from app.application.ports.logger import Logger, LoggerFactory
 from app.application.ports.text_generator import TextGenerator
 from app.infrastructure.agents._core.state import GraphState, GraphStateKeys
 from app.infrastructure.agents.guardrails.result import GuardrailResult
+from app.infrastructure.observability import observe_block
 
 from .._core.contracts.agent_node import AgentNode
 from .anonymization import anonymize_input
@@ -138,6 +139,7 @@ class InputGuardrailNode(AgentNode):
         result = await self._guard_input(anonymized)
 
         if result.blocked:
+            observe_block(result.reason)
             self._logger.info(
                 "Agent response",
                 details={

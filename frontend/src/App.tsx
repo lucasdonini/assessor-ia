@@ -11,6 +11,7 @@ import { sendChatMessage } from './api/chat'
 import { finalizeSession } from './api/session'
 import { MarkdownResponse } from './components/MarkdownResponse'
 import { Profile } from './components/Profile'
+import { Monitor } from './components/Monitor'
 import './App.css'
 
 const SESSION_STORAGE_KEY = 'assessor-ia.session-id'
@@ -352,7 +353,7 @@ function App() {
   const [connection, setConnection] = useState<CalendarConnection | null>(null)
   const [proposals, setProposals] = useState<EventProposal[]>([])
   const [notice, setNotice] = useState('')
-  const [view, setView] = useState<'chat' | 'profile'>('chat')
+  const [view, setView] = useState<'chat' | 'profile' | 'monitor'>('chat')
 
   useEffect(() => {
     let active = true
@@ -403,11 +404,14 @@ function App() {
       {loading ? <p role="status">Verificando sua conta…</p> : account ? <>
         <span>{account.email}</span>
         <button className="header__reset" disabled={busy} onClick={() => void run(async () => {
-          await logout(); setAccount(null); setConnection(null); setProposals([])
+          await logout(); setAccount(null); setConnection(null); setProposals([]); setView('chat')
         })}>Sair</button>
         <button className="header__reset" onClick={() => setView(view === 'chat' ? 'profile' : 'chat')}>
           {view === 'chat' ? 'Perfil' : 'Conversa'}
         </button>
+        {account.can_monitor && <button className="header__reset" onClick={() => setView(view === 'monitor' ? 'chat' : 'monitor')}>
+          {view === 'monitor' ? 'Conversa' : 'Monitoramento'}
+        </button>}
         <span>{connection?.connected ? `Calendar: ${connection.email}` : 'Calendar não conectado'}</span>
         <button className="header__reset" disabled={busy} onClick={() => void run(async () => {
           if (connection?.connected && !connection.reconnect_required) {
@@ -428,7 +432,7 @@ function App() {
       <p>Confirmar criará o compromisso mesmo com estes conflitos locais.</p>
       <button className="header__reset" disabled={busy} onClick={() => void run(() => confirmEvent(item.operation_id))}>Confirmar conflito</button>
     </section>)}
-    {account ? view === 'profile' ? <Profile key={account.id} userId={account.id} onBack={() => setView('chat')} /> :
+    {account ? view === 'monitor' && account.can_monitor ? <Monitor onBack={() => setView('chat')} /> : view === 'profile' ? <Profile key={account.id} userId={account.id} onBack={() => setView('chat')} /> :
       <Chat key={account.id} userId={account.id} /> : <section className="user-welcome">
         <h1 className="header__title">assistente_</h1>
         <p>Entre com Google para acessar sua agenda e suas finanças.</p>

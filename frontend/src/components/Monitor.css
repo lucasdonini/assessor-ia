@@ -1,0 +1,29 @@
+.monitor { color: var(--text, #e8f4f8); padding: clamp(16px, 3vw, 36px); border: 1px solid #29414c; border-radius: 14px; background: #0b151c; }
+.monitor__header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.monitor h1 { margin: 0; font-size: 2rem; }
+.monitor h2 { margin: 28px 0 12px; font-size: 1.2rem; }
+.monitor p, .monitor small { color: #a9bcc7; line-height: 1.6; }
+.monitor__eyebrow { letter-spacing: .15em; font-size: .7rem; }
+.monitor__slo { border: 1px solid #45616c; padding: 16px; border-radius: 8px; margin: 20px 0; font-weight: 700; }
+.monitor small { display: block; font-size: .75rem; overflow-wrap: anywhere; }
+.monitor__slo--within_target { border-color: #5dd6a3; background: #143528; }
+.monitor__slo--breached, .monitor__error { border-color: #ff8d8d; background: #3a1e27; padding: 14px; }
+.monitor__warning { border-left: 3px solid #edc775; padding-left: 12px; }
+.monitor__metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.monitor__metrics article { border: 1px solid #29414c; border-radius: 8px; padding: 16px; background: #101f29; }
+.monitor__metrics span { display: block; color: #a9bcc7; font-size: .8rem; margin-bottom: 9px; }
+.monitor__metrics strong { font-size: 1.3rem; overflow-wrap: anywhere; }
+.monitor__charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+.monitor__chart { margin: 0; padding: 16px; border: 1px solid #29414c; border-radius: 8px; }
+.monitor__chart svg { width: 100%; height: auto; }
+.monitor__chart svg text { fill: #a9bcc7; font-size: 15px; }
+.monitor__chart polyline { fill: none; stroke: #63dcbe; stroke-width: 3; }
+.monitor__chart circle { fill: #63dcbe; }
+.monitor__axis { stroke: #45616c; fill: none; }
+.monitor__limit { stroke: #edc775; stroke-dasharray: 7 5; }
+.monitor__scroll { overflow-x: auto; }
+.monitor table { border-collapse: collapse; width: 100%; text-align: left; font-size: .85rem; }
+.monitor th, .monitor td { padding: 12px; border-bottom: 1px solid #29414c; vertical-align: top; }
+.monitor th { color: #a9bcc7; }
+.monitor details { min-width: 180px; }
+.monitor summary { cursor: pointer; }

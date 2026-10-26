@@ -1,4 +1,4 @@
-export type Account = { id: string; email: string; csrf: string }
+export type Account = { id: string; email: string; csrf: string; can_monitor?: boolean }
 export type CalendarConnection = {
   connected: boolean; email: string | null; reconnect_required: boolean
 }
@@ -20,7 +20,7 @@ export async function currentAccount(): Promise<Account | null> {
     throw new Error('Resposta de autenticação inválida.')
   }
   csrf = value.csrf
-  return { id: value.id, email: value.email, csrf }
+  return { id: value.id, email: value.email, csrf, can_monitor: 'can_monitor' in value && value.can_monitor === true }
 }
 
 export async function logout(): Promise<void> {

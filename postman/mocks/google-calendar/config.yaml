@@ -1,0 +1,11 @@
+version: 1
+id: 6c7176db-7fd1-4e72-8593-4ed47c3cc65d
+name: google-calendar
+slug: google-calendar
+protocol: http
+interceptRequests: true
+port: 4500
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

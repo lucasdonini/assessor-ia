@@ -1,0 +1,6 @@
+simulation: google-calendar
+routing: path
+mocks:
+  - name: google-calendar
+    routeKey: google
+    path: postman/mocks/google-calendar

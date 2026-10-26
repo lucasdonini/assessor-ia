@@ -9,14 +9,12 @@ from fastapi.testclient import TestClient
 from app.api.dependencies import (
     get_profile_service,
     get_user_context,
-    get_user_service,
 )
 from app.api.middleware.exception_handler import register_exception_handlers
 from app.api.routes.profile import router
 from app.application.exceptions import ProfileUnavailableError
 from app.application.models.user_context import UserContext
 from app.infrastructure.logger import bind_session_context
-from app.services.user_service import UserService
 from tests.user_identity import TEST_USER_ID
 
 
@@ -87,11 +85,12 @@ def test_profile_rejects_missing_invalid_or_unknown_identity(
     client: TestClient, header: str | None
 ) -> None:
     del client.app.dependency_overrides[get_user_context]
-    client.app.state.user_repository = AsyncMock()
-    client.app.state.user_repository.exists.return_value = False
-    client.app.dependency_overrides[get_user_service] = lambda: UserService(
-        client.app.state.user_repository
-    )
+    from app.api.auth import get_auth_service
+    from app.services.auth_service import AuthenticationError
+
+    service = AsyncMock()
+    service.session.side_effect = AuthenticationError()
+    client.app.dependency_overrides[get_auth_service] = lambda: service
     response = client.post(
         "/api/profile",
         headers={"X-User-ID": header} if header else {},
@@ -103,7 +102,7 @@ def test_profile_rejects_missing_invalid_or_unknown_identity(
             "user_id": str(TEST_USER_ID),
         },
     )
-    assert response.status_code == (404 if header and header != "invalid" else 422)
+    assert response.status_code == 401
     client.app.state.profile_service.save.assert_not_awaited()
 
 

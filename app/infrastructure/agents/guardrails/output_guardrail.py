@@ -8,6 +8,7 @@ from app.application.ports.text_generator import TextGenerator
 from app.infrastructure.agents._core.contracts.agent_node import AgentNode
 from app.infrastructure.agents._core.state import GraphState, GraphStateKeys
 from app.infrastructure.agents.guardrails.result import GuardrailResult
+from app.infrastructure.agents.tools.agenda import agenda_evidence, creation_message
 
 from .anonymization import deanonymize_output
 from .anonymization_config import PII
@@ -65,10 +66,18 @@ class OutputGuardrailNode(AgentNode):
                 "input_length": len(state["messages"][-1].text),
             },
         )
-        result = await self._guard_output(
-            state["messages"][-1].text,
-            state["pii_map"],
-        )
+        writes = agenda_evidence().writes
+        if writes:
+            # Trusted templates contain only server-issued IDs and status, not model
+            # text or event contents. A second model cannot rewrite write evidence.
+            result = GuardrailResult.output_aproved(
+                "\n\n".join(creation_message(item) for item in writes)
+            )
+        else:
+            result = await self._guard_output(
+                state["messages"][-1].text,
+                state["pii_map"],
+            )
         self._logger.info(
             "Agent response",
             details={

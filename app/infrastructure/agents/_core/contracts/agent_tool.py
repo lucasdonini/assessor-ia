@@ -15,6 +15,7 @@ class AgentTool[ArgsSchema: BaseModel, Response: BaseModel](BaseTool):
 
     logger_factory: Annotated[LoggerFactory, Field(exclude=True)]
     log_details: Annotated[dict[str, Any], Field(exclude=True)] = {}
+    redact_payloads: Annotated[bool, Field(exclude=True)] = False
 
     _logger: Logger = PrivateAttr()
 
@@ -34,7 +35,7 @@ class AgentTool[ArgsSchema: BaseModel, Response: BaseModel](BaseTool):
             "Tool called",
             details={
                 "tool": self.name,
-                **kwargs,
+                **({} if self.redact_payloads else kwargs),
             },
         )
 
@@ -43,7 +44,12 @@ class AgentTool[ArgsSchema: BaseModel, Response: BaseModel](BaseTool):
             typed_args = cast(ArgsSchema, args)
             result = await self._execute(args=typed_args)
 
-            self._logger.debug("Tool succeeded", details={"result": result})
+            self._logger.debug(
+                "Tool succeeded",
+                details={"tool": self.name}
+                if self.redact_payloads
+                else {"result": result},
+            )
             return ToolSuccess(data=result)
 
         except ApplicationError as error:
@@ -57,6 +63,9 @@ class AgentTool[ArgsSchema: BaseModel, Response: BaseModel](BaseTool):
             return ToolFailure.application_error(error)
 
         except Exception as e:
+            if self.redact_payloads:
+                self._logger.warning("Tool failed", details={"tool": self.name})
+                return ToolFailure.unexpected_error()
             self._logger.exception(
                 "Async tool failed",
                 exception=e,

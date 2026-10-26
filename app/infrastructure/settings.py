@@ -7,6 +7,19 @@ _DUMMY_API_KEY = "No API key provided"
 
 
 class PydanticSettings(BaseSettings):
+    google_client_id: str = ""
+    google_client_secret: SecretStr = SecretStr("")
+    google_calendar_client_id: str = ""
+    google_calendar_client_secret: SecretStr = SecretStr("")
+    google_login_redirect_uri: str = "http://localhost:8000/api/auth/google/callback"
+    google_calendar_redirect_uri: str = (
+        "http://localhost:8000/api/calendar/google/callback"
+    )
+    app_frontend_url: str = "http://localhost:8000/"
+    auth_secure_cookies: bool = True
+    google_token_encryption_key: SecretStr = SecretStr("")
+    google_token_key_id: str = "v1"
+    google_calendar_mcp_url: str = "https://calendarmcp.googleapis.com/mcp/v1"
     gemini_api_key: SecretStr = SecretStr(_DUMMY_API_KEY)
     groq_api_key: SecretStr = SecretStr(_DUMMY_API_KEY)
 
@@ -64,6 +77,18 @@ class PydanticSettings(BaseSettings):
     def validate_envs(self) -> None:
         self._validate_missing_keys()
         self._validate_chunk_overlap()
+        if not self.auth_secure_cookies:
+            from urllib.parse import urlparse
+
+            urls = (
+                self.app_frontend_url,
+                self.google_login_redirect_uri,
+                self.google_calendar_redirect_uri,
+            )
+            if any(
+                urlparse(url).hostname not in {"localhost", "127.0.0.1"} for url in urls
+            ):
+                raise ValueError("Insecure cookies are restricted to localhost")
 
 
 settings = PydanticSettings()

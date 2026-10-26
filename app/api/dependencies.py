@@ -1,9 +1,10 @@
 from typing import Annotated, AsyncGenerator
-from uuid import UUID
 
 from dishka.integrations.fastapi import FromDishka, inject
-from fastapi import Depends, Header, HTTPException, Request
+from fastapi import Depends, Request
 
+from app.api.auth import authenticated_session
+from app.application.models.google_identity import WebSession
 from app.application.models.user_context import UserContext
 from app.application.ports.agent_graph import AgentGraph
 from app.application.ports.logger import SessionContextFactory
@@ -59,14 +60,11 @@ def get_profile_service(
 
 
 async def get_user_context(
-    user_id: Annotated[UUID, Header(alias="X-User-ID")],
-    service: Annotated[UserService, Depends(get_user_service)],
+    session: Annotated[WebSession, Depends(authenticated_session)],
     request: Request,
 ) -> UserContext:
-    if not await service.exists(user_id):
-        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
-    request.state.user_id = str(user_id)
-    return UserContext(user_id=user_id)
+    request.state.user_id = str(session.user_id)
+    return UserContext(user_id=session.user_id)
 
 
 @inject

@@ -10,6 +10,7 @@ from pymongo import AsyncMongoClient
 from qdrant_client import QdrantClient
 from testcontainers.community.mongodb import MongoDbContainer
 
+from app.api.auth import get_auth_service
 from app.api.dependencies import get_profile_service, get_user_service
 from app.api.routes.profile import router
 from app.application.models.user_context import UserContext
@@ -29,6 +30,7 @@ from app.infrastructure.vectorstore.repositories.profile_preferences_index impor
 )
 from app.services.user_profile_service import UserProfileService
 from app.services.user_service import UserService
+from tests.user_identity import synthetic_auth_service
 
 pytestmark = pytest.mark.integration
 
@@ -59,6 +61,8 @@ async def test_http_mongodb_qdrant_and_tool_workflow() -> None:
             )
             first, second = uuid4(), uuid4()
             app = FastAPI()
+            auth = synthetic_auth_service(first, second)
+            app.dependency_overrides[get_auth_service] = lambda: auth
             user_repository = AsyncMock()
             user_repository.exists.side_effect = lambda uid: uid in {first, second}
             app.dependency_overrides[get_profile_service] = lambda: service
@@ -88,16 +92,25 @@ async def test_http_mongodb_qdrant_and_tool_workflow() -> None:
                 }
                 assert (
                     await http.post("/api/profile", json=payload)
-                ).status_code == 422
+                ).status_code == 401
                 for owner in (first, second):
                     response = await http.post(
-                        "/api/profile", json=payload, headers={"X-User-ID": str(owner)}
+                        "/api/profile",
+                        json=payload,
+                        cookies={"assessor_session": str(owner)},
+                        headers={
+                            "X-CSRF-Token": "test-csrf",
+                            "X-User-ID": str(uuid4()),
+                        },
                     )
                     assert response.status_code == 200
                     assert response.json()["user_id"] == str(owner)
                 payload["preferences"] = "Liquidity for travel"
                 response = await http.post(
-                    "/api/profile", json=payload, headers={"X-User-ID": str(first)}
+                    "/api/profile",
+                    json=payload,
+                    cookies={"assessor_session": str(first)},
+                    headers={"X-CSRF-Token": "test-csrf"},
                 )
                 assert response.status_code == 200
                 assert (await http.get("/api/profile")).status_code == 405

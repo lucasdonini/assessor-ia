@@ -12,6 +12,7 @@ from app.application.ports.text_generator import TextGenerator
 from app.infrastructure.agents import build_agent_graph
 from app.infrastructure.config import AgentRuntimeConfig
 from app.services.chat_history_service import ChatHistoryService
+from app.services.event_service import EventService
 from app.services.transaction_service import TransactionService
 from app.services.user_profile_service import UserProfileService
 
@@ -32,6 +33,7 @@ class AgentGraphProvider(Provider):
         interaction_incrementer: InteractionIncrementer,
         clock: Clock,
         config: AgentRuntimeConfig,
+        event_service: EventService,
     ) -> AgentGraph:
         return build_agent_graph(
             transaction_service=transaction_service,
@@ -43,5 +45,6 @@ class AgentGraphProvider(Provider):
             trace_context_factory=trace_context_factory,
             interaction_incrementer=interaction_incrementer,
             clock=clock,
+            event_service=event_service,
             execution_timeout_seconds=config.execution_timeout_seconds,
         )

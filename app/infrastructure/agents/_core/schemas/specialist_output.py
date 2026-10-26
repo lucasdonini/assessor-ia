@@ -2,6 +2,8 @@ from typing import Optional
 
 from pydantic import BaseModel
 
+from app.domain.model.event import EventCreation
+
 
 class SpecialistOutput(BaseModel):
     dominio: str
@@ -22,3 +24,4 @@ class AgendaOutput(SpecialistOutput):
     dominio: str = "agenda"
     acompanhamento: Optional[str] = None
     evento: Optional[dict] = None
+    escrita: EventCreation | None = None

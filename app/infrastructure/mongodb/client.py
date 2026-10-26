@@ -1,7 +1,9 @@
 import logging
+from typing import Any
 
 from beanie import init_beanie
 from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.monitoring import (
     CommandFailedEvent,
     CommandListener,
@@ -34,7 +36,10 @@ class LoggingMongoCommandListener(CommandListener):
     """
 
     def started(self, event: CommandStartedEvent) -> None:
-        if event.command_name.lower() not in IGNORED_COMMANDS:
+        if (
+            event.command_name.lower() not in IGNORED_COMMANDS
+            and "auth_state" not in event.command.values()
+        ):
             logger.debug(
                 "Mongo command started",
                 extra={
@@ -67,7 +72,7 @@ class LoggingMongoCommandListener(CommandListener):
                     "details": {
                         "command": event.command_name,
                         "database": event.database_name,
-                        "error": str(event.failure),
+                        "error": "Mongo command failed",
                     }
                 },
             )
@@ -95,3 +100,8 @@ class MongoManager:
         if self._client is not None:
             await self._client.close()
             self._client = None
+
+    def database(self) -> AsyncDatabase[dict[str, Any]]:
+        if self._client is None:
+            raise RuntimeError("MongoDB is not initialized")
+        return self._client[self._config.database_name]

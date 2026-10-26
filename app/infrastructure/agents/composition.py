@@ -10,6 +10,7 @@ from app.application.ports.logger import (
 from app.application.ports.text_generator import TextGenerator
 from app.infrastructure.llms import fast_llm, llm_gemini, llm_groq
 from app.services.chat_history_service import ChatHistoryService
+from app.services.event_service import EventService
 from app.services.transaction_service import TransactionService
 from app.services.user_profile_service import UserProfileService
 
@@ -24,6 +25,7 @@ from .guardrails import InputGuardrailNode, OutputGuardrailNode
 from .orquestrator import OrquestratorAgentNode
 from .router import RouterAgentNode
 from .tools.add_transaction import AddTransactionTool
+from .tools.agenda import AddEventTool, QueryEventsTool
 from .tools.consult_profile import ConsultProfileTool
 from .tools.daily_balance import DailyBalanceTool
 from .tools.delete_transaction import DeleteTransactionTool
@@ -46,6 +48,7 @@ def build_agent_graph(
     trace_context_factory: TraceContextFactory,
     interaction_incrementer: InteractionIncrementer,
     clock: Clock,
+    event_service: EventService | None = None,
     execution_timeout_seconds: float = 120.0,
 ) -> AgentGraphImpl:
     specialist_fallback = FallbackOn429Middleware(
@@ -129,6 +132,12 @@ def build_agent_graph(
         logger_factory=logger_factory,
         clock=clock,
         search_history_tool=search_history_tool,
+        agenda_tools=(
+            AddEventTool(service=event_service, logger_factory=logger_factory),
+            QueryEventsTool(service=event_service, logger_factory=logger_factory),
+        )
+        if event_service is not None
+        else (),
     )
 
     faq = FAQAgentNode(

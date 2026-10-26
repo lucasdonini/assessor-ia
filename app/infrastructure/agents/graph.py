@@ -26,6 +26,7 @@ from ._core.contracts.agent_node import AgentNode
 from ._core.specialist import SpecialistRegistration
 from ._core.state import GraphState, GraphStateKeys
 from ._core.user_context import bind_user_context
+from .tools.agenda import agenda_execution, creation_message
 
 
 class AgentGraphImpl:
@@ -161,7 +162,11 @@ class AgentGraphImpl:
     ) -> AgentExecutionResult:
         self._interaction_incrementer()
         trace_id = str(uuid.uuid4())
-        with self._trace_context_factory(trace_id), bind_user_context(context):
+        with (
+            self._trace_context_factory(trace_id),
+            bind_user_context(context),
+            agenda_execution() as agenda_evidence,
+        ):
             message = LangGraphHumanMessage(id=trace_id, content=user_input.content)
             self._logger.info(
                 "User input received",
@@ -211,6 +216,14 @@ class AgentGraphImpl:
                     f"received {type(last.content).__name__!r}"
                 )
             return AgentExecutionResult(
-                message=AssistantMessage(content=last.content),
+                message=AssistantMessage(
+                    content=(
+                        "\n\n".join(
+                            creation_message(item) for item in agenda_evidence.writes
+                        )
+                        if agenda_evidence.writes
+                        else last.content
+                    )
+                ),
                 called_agents=tuple(final_state["called_agents"]),
             )

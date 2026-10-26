@@ -3,6 +3,10 @@ name = "acessorIA"
 version = "2.0.0"
 requires-python = "==3.14.*"
 dependencies = [
+    "cryptography>=46.0.0",
+    "google-auth>=2.40.0",
+    "httpx>=0.28.0",
+    "httpx2>=2.13.0",
     "google-genai>=1.68.0",
     "langchain>=1.2.14",
     "langchain-google-genai>=4.2.1",

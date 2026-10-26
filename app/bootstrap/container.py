@@ -9,11 +9,13 @@ from .providers import (
     ServicesProvider,
     SettingsProvider,
 )
+from .providers.google import GoogleProvider
 
 
 def create_container() -> AsyncContainer:
     return make_async_container(
         SettingsProvider(),
+        GoogleProvider(),
         LoggingProvider(),
         PostgresProvider(),
         MongoProvider(),

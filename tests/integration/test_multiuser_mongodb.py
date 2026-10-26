@@ -7,6 +7,7 @@ from beanie import init_beanie
 from pymongo import AsyncMongoClient
 from testcontainers.community.mongodb import MongoDbContainer
 
+from app.api.auth import get_auth_service
 from app.domain.exception.chat_session import ChatSessionNotFoundException
 from app.domain.model.chat_entry import HumanMessage
 from app.domain.model.chat_session import ChatSession
@@ -15,6 +16,7 @@ from app.infrastructure.mongodb.repositories.chat_session_repository import (
     BeanieChatSessionRepository,
 )
 from app.services.chat_session_service import ChatSessionService
+from tests.user_identity import synthetic_auth_service
 
 pytestmark = pytest.mark.integration
 
@@ -84,6 +86,8 @@ async def test_mongodb_owner_filters_and_immutable_session_owner():
             from app.services.user_service import UserService
 
             app = FastAPI()
+            auth = synthetic_auth_service(first, second)
+            app.dependency_overrides[get_auth_service] = lambda: auth
             user_repository = AsyncMock()
             user_repository.exists.return_value = True
             graph = AsyncMock()
@@ -109,7 +113,8 @@ async def test_mongodb_owner_filters_and_immutable_session_owner():
             ) as http:
                 response = await http.post(
                     "/api/chat/second",
-                    headers={"X-User-ID": str(first)},
+                    cookies={"assessor_session": str(first)},
+                    headers={"X-CSRF-Token": "test-csrf", "X-User-ID": str(second)},
                     json={"message": "intrusion"},
                 )
             assert response.status_code == 404

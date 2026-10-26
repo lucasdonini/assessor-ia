@@ -11,3 +11,5 @@
 .mypy_cache*/
 .ruff_cache/
 .codex/config.toml
+gcp-oauth.keys.json
+google-calendar.token.json

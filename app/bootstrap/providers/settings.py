@@ -2,6 +2,7 @@ from dishka import Provider, Scope, provide
 
 from app.infrastructure.config import (
     AgentRuntimeConfig,
+    GoogleConfig,
     MongoConfig,
     PostgresConfig,
     ProfileIndexConfig,
@@ -12,6 +13,22 @@ from app.infrastructure.vectorstore.config import SessionHistoryConfig
 
 class SettingsProvider(Provider):
     scope = Scope.APP
+
+    @provide
+    def google_config(self, config: PydanticSettings) -> GoogleConfig:
+        return GoogleConfig(
+            client_id=config.google_client_id,
+            client_secret=config.google_client_secret.get_secret_value(),
+            calendar_client_id=config.google_calendar_client_id,
+            calendar_client_secret=config.google_calendar_client_secret.get_secret_value(),
+            login_redirect_uri=config.google_login_redirect_uri,
+            calendar_redirect_uri=config.google_calendar_redirect_uri,
+            frontend_url=config.app_frontend_url,
+            encryption_key=config.google_token_encryption_key.get_secret_value(),
+            key_id=config.google_token_key_id,
+            secure_cookies=config.auth_secure_cookies,
+            mcp_url=config.google_calendar_mcp_url,
+        )
 
     @provide
     def settings(self) -> PydanticSettings:

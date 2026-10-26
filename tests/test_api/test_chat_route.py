@@ -239,7 +239,13 @@ def test_missing_user_rejected_before_chat_execution(client, graph, session_serv
     client.app.dependency_overrides[get_user_service] = lambda: UserService(
         client.app.state.user_repository
     )
+    from app.api.auth import get_auth_service
+    from app.services.auth_service import AuthenticationError
+
+    service = AsyncMock()
+    service.session.side_effect = AuthenticationError()
+    client.app.dependency_overrides[get_auth_service] = lambda: service
     response = client.post(f"/api/chat/{_SESSION_ID}", json={"message": "hello"})
-    assert response.status_code == 422
+    assert response.status_code == 401
     assert not graph.messages
     assert not session_service.messages

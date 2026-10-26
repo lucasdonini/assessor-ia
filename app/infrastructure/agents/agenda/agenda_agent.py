@@ -1,6 +1,7 @@
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Sequence
 
-from langchain_core.messages import SystemMessage
+from langchain.tools import BaseTool
+from langchain_core.messages import AIMessage, SystemMessage
 from langgraph.graph.state import CompiledStateGraph
 
 from app.application.ports.clock import Clock
@@ -13,6 +14,7 @@ from app.infrastructure.agents._core.state import GraphState, GraphStateKeys
 
 from .._core.contracts.agent_factory import AgentFactory
 from .._core.contracts.agent_node import AgentNode
+from ..tools.agenda import agenda_evidence
 from ..tools.search_history import SearchHistoryTool
 from .agenda_prompt import build_agenda_prompt
 
@@ -29,14 +31,18 @@ class AgendaAgentNode(AgentNode):
         logger_factory: LoggerFactory,
         clock: Clock,
         search_history_tool: SearchHistoryTool,
+        agenda_tools: Sequence[BaseTool] = (),
     ) -> None:
-        prompt = build_agenda_prompt(search_history_tool_name=search_history_tool.name)
+        prompt = build_agenda_prompt(
+            search_history_tool_name=search_history_tool.name,
+            agenda_available=bool(agenda_tools),
+        )
         self._logger = logger_factory(__name__)
         self._clock = clock
         self._agent = agent_factory(
             system_prompt=prompt,
             response_format=AgendaOutput,
-            tools=(search_history_tool,),
+            tools=(search_history_tool, *agenda_tools),
         )
 
     async def __call__(self, state: GraphState) -> dict[GraphStateKeys, Any]:
@@ -56,6 +62,19 @@ class AgendaAgentNode(AgentNode):
 
         # type: ignore[arg-type]
         response = await self._agent.ainvoke(request_state)
+        structured = response.get("structured_response")
+        if isinstance(structured, AgendaOutput):
+            writes = agenda_evidence().writes
+            structured.escrita = writes[-1] if writes else None
+            if (
+                structured.intencao.lower() in {"criar", "adicionar", "registrar"}
+                and not writes
+            ):
+                structured.resposta = (
+                    "Nenhum compromisso foi registrado nesta solicitação. "
+                    "Informe título, data, início e duração ou término para prosseguir."
+                )
+            response["messages"] = [AIMessage(content=structured.model_dump_json())]
         last = (response.get("messages") or [None])[-1]
         output_length = len(last.content) if last and last.content else 0
         self._logger.info(

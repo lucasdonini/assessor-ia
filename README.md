@@ -362,3 +362,44 @@ alem dos cenarios do MCP opcional. Os detalhes estao no contexto da simulacao em
 Ela nao usa credenciais reais nem confirma a elegibilidade do projeto Google.
 O login/consentimento e uma criacao REST real com readback continuam sendo gates
 antes de considerar a funcionalidade validada em ambiente real.
+
+## Monitoramento de turnos
+
+A [spec de observabilidade](specs/002-turn-observability/spec.md) descreve o
+registro em memória dos últimos 50 turnos concluídos do grafo. O painel aparece
+em **Monitoramento** para operadores autenticados com Google. Configure
+`MONITOR_OPERATOR_EMAILS` como um array JSON de e-mails no ambiente, por exemplo
+`["operador@example.com"]`, e reinicie a API. O padrão `[]` nega acesso a todos.
+O servidor compara o e-mail verificado da sessão sem distinguir maiúsculas de
+minúsculas. Nenhum e-mail enviado em um header concede acesso. A lista não é
+devolvida ao navegador. `GET /api/monitor` retorna 401 sem login e 403 para quem
+não está autorizado.
+
+O painel atualiza a cada quatro segundos enquanto visível e mostra a visão global
+do processo: latências, SLO, bloqueios, erros, cancelamentos, tokens, fallbacks,
+custo conhecido e detalhes por turno, modelo e rota. O p95 usa nearest-rank.
+O objetivo é p95 até 8 segundos e taxa de erro até 5%; sem turnos, o SLO fica sem
+avaliação. Recusas por política não são erros; indisponibilidade do classificador
+e cancelamento contam como falha. As medidas excluem espera de sessão,
+autenticação e persistência HTTP.
+
+O custo usa preços padrão verificados em 26/10/2026, sem desconto de cache.
+Tokens ou preços indisponíveis tornam a estimativa parcial. O Qwen usado como
+fallback fica explicitamente sem preço confirmado. Custo acumulado significa
+somente a janela retida, nunca a fatura ou o total histórico. Reiniciar limpa a
+telemetria sem apagar dados da aplicação. Use um único worker, conforme a
+restrição do checkpointer atual; não há agregação entre processos.
+
+O LangSmith é opcional e vem desativado em `.env.example`. Para ativá-lo no seu
+ambiente, configure `LANGSMITH_TRACING`, `LANGSMITH_API_KEY` e `LANGSMITH_PROJECT`.
+O coletor local e o painel funcionam sem essa chave. O exporter explícito envia
+somente metadados técnicos: topologia, duração, identificador do turno, modelo e
+uso conhecido. Antes do envio ele remove mensagens, argumentos/resultados de
+tools, objetos serializados, eventos livres e detalhes de exceções. Resumos de
+sessão ficam fora dos traces. Não configure callbacks paralelos que enviem
+conteúdo diretamente. Nunca versione uma chave.
+
+A validação local usa o SDK real com transporte capturado para verificar árvore,
+correlação, tokens e remoção de conteúdo. A entrega não ativou tracing nem alterou
+contas externas; confira um turno sintético no projeto LangSmith após habilitá-lo
+no ambiente de implantação.

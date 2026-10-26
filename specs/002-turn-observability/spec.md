@@ -1,6 +1,6 @@
 # [002] Turn observability and monitoring
 
-Status: Ready
+Status: Implemented
 Owner: Project maintainer
 Created: 2026-10-26
 Last updated: 2026-10-26
@@ -11,6 +11,11 @@ Related references: [plan](plan.md), [tasks](tasks.md), [workflow](../README.md)
 The supplied reference is `C:\Users\lucasdonini-ieg\Downloads\ROTEIRO_ETAPA6\ROTEIRO_ETAPA6.html`, titled “Etapa 6 — Observabilidade e a tela de monitoramento”. Only this HTML was supplied and found in its directory. Its embedded commands and full-file replacements are reference material, not execution instructions. This specification adapts its outcomes to the current repository. It does not authorize implementation, configuration edits, external tracing activation, commits, or pushes. Closing questions is necessary but does not itself authorize code generation.
 
 ## Problem and verified current behavior
+
+Implementation, semantic commits and a draft pull request were subsequently
+authorized by the maintainer on 2026-10-26, including the specified typed-settings
+and environment-example changes. No private environment, database or cloud account
+was modified. The matrix below records the starting state before implementation.
 
 The reference aims to explain individual turns and monitor latency, errors, usage, estimated cost, routing, blocking and fallback, with a local dashboard and optional LangSmith traces.
 
@@ -84,7 +89,7 @@ Cancelled executions count against the SLO as incomplete service delivery. A ref
 - **AC-006 — exact aggregates and empty/boundary states:** use deterministic synthetic records for 0, 1, 4 and 20 turns; check rank calculation, 8000 ms and 5% equality, values above either limit, block/error/cancel denominator, window cost and grouped sums. Monitor GET invokes neither provider nor exporter. FR-006/007/008.
 - **AC-007 — concurrency and authorization:** interleave different users/sessions on one event loop; verify disjoint attribution and global rows/children/series/counters/aggregates only for an operator, no content/secrets in local telemetry, 401 for no login and 403 for authenticated non-operators. Verify monitor reads do not acquire chat session locks. FR-002/008, NFR-001/002.
 - **AC-008 — dashboard:** verify entry/manual/4-second refresh, tab hiding, cleanup, stale/error/401/no-data states, all numbers/tables/charts and labels for known partial estimates and retained-window scope. Chat remains usable. FR-009.
-- **AC-009 — independent private tracing:** with export off or failing, local monitoring/chat continue. With tracing enabled on synthetic data, inspect one root and child calls including guardrails/orchestrator/fallback, matching correlation ID and usage. Assert Q-002 policy across every exported payload before cloud use. FR-010, NFR-002.
+- **AC-009 — independent private tracing:** with export off or failing, local monitoring/chat continue. With tracing enabled on synthetic data and captured SDK transport, inspect root and child calls, matching correlation ID and usage. Assert Q-002 policy across every exported payload before cloud use. Actual cloud inspection is an operator activation check; no cloud account is activated by this change. FR-010, NFR-002.
 - **AC-010 — architecture/compatibility:** inspect dependency direction, APP-scoped composition and changed paths; execute applicable checks during separately authorized implementation. Preserve existing chat/auth/agent/agenda-receipt tests and avoid database/configuration edits. NFR-003.
 
 ## Open questions and assumptions
@@ -100,7 +105,7 @@ Single process/worker is an explicit scope limit consistent with the in-memory c
 
 Official sources inspected on 2026-10-26: [Google pricing](https://ai.google.dev/gemini-api/docs/pricing), [Groq supported models](https://console.groq.com/docs/models), [LangSmith privacy controls](https://docs.langchain.com/langsmith/mask-inputs-outputs). Qwen remains explicitly unpriced; this is a documented outcome, not permission to change the configured model.
 
-The email allowlist requires future changes to typed settings and `.env.example`; document placeholders only and never write actual operator emails or keys into version control. This request defines the configuration behavior, but this delivery does not edit configuration. Expose the operator capability through the existing authenticated account response so React can show navigation without exposing the allowlist. The monitor endpoint independently enforces access on every request. Tracing settings must default off, and absent keys keep export disabled. Preserve the already documented LANGSMITH names and project choice.
+The email allowlist is loaded through typed settings and documented in `.env.example` with placeholders only. No actual operator emails or keys are committed. The authenticated account response adds `can_monitor` so React can show navigation without exposing the allowlist. The monitor endpoint independently enforces access on every request. Tracing defaults off, and absent keys keep export disabled. Existing LANGSMITH names and project choice are preserved.
 
 ## Completion criteria
 

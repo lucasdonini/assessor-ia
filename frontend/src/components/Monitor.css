@@ -1,4 +1,4 @@
-.monitor { color: var(--text, #e8f4f8); padding: clamp(16px, 3vw, 36px); border: 1px solid #29414c; border-radius: 14px; background: #0b151c; }
+.monitor { flex: 1; min-height: 0; min-width: 0; overflow-y: auto; color: var(--text, #e8f4f8); padding: clamp(16px, 3vw, 36px); border: 1px solid #29414c; border-radius: 14px; background: #0b151c; }
 .monitor__header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
 .monitor h1 { margin: 0; font-size: 2rem; }
 .monitor h2 { margin: 28px 0 12px; font-size: 1.2rem; }

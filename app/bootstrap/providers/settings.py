@@ -27,6 +27,7 @@ class SettingsProvider(Provider):
             encryption_key=config.google_token_encryption_key.get_secret_value(),
             key_id=config.google_token_key_id,
             secure_cookies=config.auth_secure_cookies,
+            transport=config.google_calendar_transport,
             mcp_url=config.google_calendar_mcp_url,
         )
 

@@ -19,6 +19,7 @@ class PydanticSettings(BaseSettings):
     auth_secure_cookies: bool = True
     google_token_encryption_key: SecretStr = SecretStr("")
     google_token_key_id: str = "v1"
+    google_calendar_transport: Literal["rest", "mcp"] = "rest"
     google_calendar_mcp_url: str = "https://calendarmcp.googleapis.com/mcp/v1"
     gemini_api_key: SecretStr = SecretStr(_DUMMY_API_KEY)
     groq_api_key: SecretStr = SecretStr(_DUMMY_API_KEY)

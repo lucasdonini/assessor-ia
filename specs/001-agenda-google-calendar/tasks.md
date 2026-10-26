@@ -9,7 +9,7 @@ Last updated: 2026-10-26
 - [x] T-001: Inspect source/reference and resolve product decisions. Evidence:
   current-state findings in spec.md and user's choices for per-user Google login,
   conflict confirmation and missing-duration clarification.
-- [ ] T-002: Verify external Cloud/OAuth prerequisites and sanitized current MCP
+- [ ] T-002: Verify external Cloud/OAuth prerequisites for REST; optional sanitized MCP
   schema. Select maintained compatible libraries and least-privilege write scopes.
   Depends on T-001. No live mutation or Cloud configuration without authorization.
 - [x] T-003: Deliver authenticated owner resolution, sessions and Calendar consent
@@ -27,7 +27,7 @@ Last updated: 2026-10-26
   UUID selection; update client auth and CSRF handling. Depends on T-003/T-007.
 - [ ] T-009: Run deterministic, disposable-database, simulated-provider, regression
   and representative model checks. Depends on T-003 through T-008.
-- [ ] T-010: Verify real two-account ownership and MCP write/readback; document
+- [ ] T-010: Verify real two-account ownership and REST write/readback; document
   setup, operational recovery, limitations and legacy-account behavior. Depends on
   T-009. Mark Implemented only when required evidence exists.
 
@@ -41,7 +41,7 @@ Last updated: 2026-10-26
 | FR-004 | AC-004 | T-004/009 | PostgreSQL filters and timezone boundaries | Passed controlled queries, date boundaries and owner filters |
 | FR-005 | AC-005 | T-005/009 | Conflict confirmation and concurrent creation | Passed concurrent conflict, changed proposal and confirmation checks |
 | FR-006 | AC-006 | T-005/006/010 | Local-first trace and both destination readbacks | Passed local-first and simulated provider readback; real readback pending |
-| FR-007 | AC-007 | T-002/006/009/010 | Protocol discovery, failure simulation and real MCP | Passed five HTTP simulation cases; real MCP pending |
+| FR-007 | AC-007 | T-002/006/009/010 | REST default, optional protocol discovery, failure simulation and live readback | Passed nine HTTP simulation cases; real REST readback pending |
 | FR-008 | AC-008 | T-005/006/009 | Partial failure, cancellation and crash recovery | Passed local retention, timeout, cancellation and uncertain response checks |
 | FR-009 | AC-009 | T-007/009 | Typed receipt validation and Portuguese model evaluation | Passed deterministic receipt protection; live-model evaluation pending |
 | FR-010 | AC-010 | T-005/006/009 | Repeated calls, unknown-state retry suppression | Passed repeated operation/confirmation and uncertain-response checks |
@@ -116,3 +116,19 @@ gates pass. A draft PR is for review and explicitly does not imply release readi
 Deferred: legacy-account claim/migration UI, two-way sync, recurrence, event
 editing/deletion, automatic remote retries, external agenda-tool publication and
 multi-worker deployment. These do not block the stated initial release.
+
+
+## Approved REST default (2026-10-26)
+
+The user approved using REST as the main path because their project cannot join
+Workspace Developer Preview. This supersedes the earlier MCP readiness gate for
+the default integration. GOOGLE_CALENDAR_TRANSPORT defaults to rest; mcp is opt-in
+and retains the restrictive service-disabled fallback. No historical event is
+re-exported, and neither transport automatically retries uncertain writes.
+
+Verification: nine actual HTTP simulation cases passed (three default REST cases,
+six optional MCP cases), with zero MCP calls for REST. REST denial created no
+remote record; commit-then-500 retained exactly one record and returned unknown.
+35 related unit tests, Ruff and MyPy (153 application files) passed. Live REST
+creation/readback and two-account validation remain pending; no Google write was
+performed by these checks.

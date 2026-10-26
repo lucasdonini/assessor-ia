@@ -366,7 +366,9 @@ antes de considerar a funcionalidade validada em ambiente real.
 ## Monitoramento de turnos
 
 A [spec de observabilidade](specs/002-turn-observability/spec.md) descreve o
-registro em memória dos últimos 50 turnos concluídos do grafo. O painel aparece
+registro dos últimos 50 turnos concluídos do grafo. A
+[spec de persistência](specs/003-telemetry-persistence/spec.md) acrescenta o
+armazenamento dos turnos no MongoDB. O painel aparece
 em **Monitoramento** para operadores autenticados com Google. Configure
 `MONITOR_OPERATOR_EMAILS` como um array JSON de e-mails no ambiente, por exemplo
 `["operador@example.com"]`, e reinicie a API. O padrão `[]` nega acesso a todos.
@@ -386,9 +388,27 @@ autenticação e persistência HTTP.
 O custo usa preços padrão verificados em 26/10/2026, sem desconto de cache.
 Tokens ou preços indisponíveis tornam a estimativa parcial. O Qwen usado como
 fallback fica explicitamente sem preço confirmado. Custo acumulado significa
-somente a janela retida, nunca a fatura ou o total histórico. Reiniciar limpa a
-telemetria sem apagar dados da aplicação. Use um único worker, conforme a
+somente a janela retida, nunca a fatura ou o total histórico. Reiniciar restaura
+os 50 turnos mais recentes e reinicia apenas os contadores de atividade e uptime.
+Use um único worker, conforme a
 restrição do checkpointer atual; não há agregação entre processos.
+
+Cada turno concluído é persistido na coleção `telemetry_turns` do MongoDB já
+configurado. Chamadas e tempos dos nós ficam no mesmo documento, sem prompts,
+respostas ou conteúdo das tools. O identificador do turno impede duplicatas;
+o índice de consulta é criado automaticamente, sem migração PostgreSQL. Não há
+TTL ou exclusão automática: o banco preserva todos os turnos, enquanto o painel
+agrega os últimos 50. A política de retenção de longo prazo pode ser definida
+posteriormente. Turnos que existiam somente em RAM antes da atualização não podem
+ser recuperados retroativamente.
+
+A gravação aguarda confirmação com journal e tem prazo total de dois segundos,
+incluindo uma retentativa idempotente. Falhas não impedem a resposta do chat;
+o painel sinaliza histórico não restaurado ou gravações não confirmadas. Não há
+outbox durável: encerramento abrupto antes da confirmação ou indisponibilidade
+prolongada do banco pode causar perda de telemetria. O shutdown normal aguarda
+gravações pendentes antes de fechar a conexão MongoDB. Nenhum dado financeiro
+ou de conversa é apagado por essa funcionalidade.
 
 O LangSmith é opcional e vem desativado em `.env.example`. Para ativá-lo no seu
 ambiente, configure `LANGSMITH_TRACING`, `LANGSMITH_API_KEY` e `LANGSMITH_PROJECT`.

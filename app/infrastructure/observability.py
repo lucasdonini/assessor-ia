@@ -1,8 +1,8 @@
 import asyncio
 import time
 from collections import deque
-from collections.abc import Callable, Generator
-from contextlib import contextmanager
+from collections.abc import AsyncIterator, Callable, Generator
+from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -17,11 +17,13 @@ from langchain_core.outputs import LLMResult
 from app.application.models.observability import (
     ModelObservation,
     NodeObservation,
+    PersistenceSummary,
     TelemetrySnapshot,
     TurnObservation,
     TurnStatus,
 )
 from app.application.ports.logger import LoggerFactory
+from app.application.repositories.telemetry_repository import TelemetryRepository
 
 
 @dataclass
@@ -37,6 +39,7 @@ class ActiveTurn:
     nodes: list[NodeObservation] = field(default_factory=list)
     calls: list[ModelObservation] = field(default_factory=list)
     fallbacks: int = 0
+    completed: TurnObservation | None = None
 
 
 _current: ContextVar[tuple["TurnTelemetry", str] | None] = ContextVar(
@@ -44,6 +47,7 @@ _current: ContextVar[tuple["TurnTelemetry", str] | None] = ContextVar(
 )
 _node: ContextVar[str] = ContextVar("telemetry_node", default="unknown")
 _P = ParamSpec("_P")
+_PERSISTENCE_TIMEOUT_SECONDS = 2.0
 
 
 def best_effort(operation: Callable[_P, None]) -> Callable[_P, None]:
@@ -111,7 +115,11 @@ def observe_node(name: str) -> Generator[None]:
 class TurnTelemetry:
     """APP-scoped store. No prompt, reply, exception or tool payload is retained."""
 
-    def __init__(self, logger_factory: LoggerFactory) -> None:
+    def __init__(
+        self,
+        logger_factory: LoggerFactory,
+        repository: TelemetryRepository | None = None,
+    ) -> None:
         self._logger = logger_factory(__name__)
         self._lock = RLock()
         self._started_at = datetime.now(UTC)
@@ -120,6 +128,58 @@ class TurnTelemetry:
         self._active: dict[str, ActiveTurn] = {}
         self._runs: dict[UUID, tuple[str, str, str, str, float]] = {}
         self.callback = ModelCollector(self)
+        self._repository = repository
+        self._history_loaded = False
+        self._failed_writes = 0
+        self._pending: set[asyncio.Task[None]] = set()
+
+    async def restore(self) -> None:
+        if self._repository is None:
+            return
+        try:
+            async with asyncio.timeout(_PERSISTENCE_TIMEOUT_SECONDS):
+                await self._repository.initialize()
+                turns = await self._repository.latest(50)
+            with self._lock:
+                self._turns.extend(turns)
+                self._history_loaded = True
+        except Exception:
+            self._logger.warning("Telemetry history unavailable")
+
+    async def _persist(self, turn: TurnObservation) -> None:
+        if self._repository is None:
+            return
+        try:
+            async with asyncio.timeout(_PERSISTENCE_TIMEOUT_SECONDS):
+                try:
+                    await self._repository.save(turn)
+                except Exception:
+                    # One bounded idempotent retry; never repeat a business operation.
+                    await self._repository.save(turn)
+        except Exception:
+            self._failed_writes += 1
+            self._logger.warning("Telemetry persistence unavailable")
+
+    @asynccontextmanager
+    async def persisted_turn(
+        self, turn_id: str, user_id: str, session_id: str
+    ) -> AsyncIterator[None]:
+        active: ActiveTurn | None = None
+        try:
+            with self.turn(turn_id, user_id, session_id):
+                active = self._active.get(turn_id)
+                yield
+        finally:
+            if active is not None and active.completed is not None and self._repository:
+                task = asyncio.create_task(self._persist(active.completed))
+                self._pending.add(task)
+                task.add_done_callback(self._pending.discard)
+                # Keep the write alive if a caller cancels the graph task again.
+                await asyncio.shield(task)
+
+    async def drain(self) -> None:
+        if self._pending:
+            await asyncio.gather(*tuple(self._pending), return_exceptions=True)
 
     @contextmanager
     def turn(self, turn_id: str, user_id: str, session_id: str) -> Generator[None]:
@@ -204,21 +264,21 @@ class TurnTelemetry:
                         )
                     )
             try:
-                self._turns.append(
-                    TurnObservation(
-                        turn_id=turn.turn_id,
-                        user_id=turn.user_id,
-                        session_id=turn.session_id,
-                        started_at=turn.started_at,
-                        elapsed_ms=(time.perf_counter() - turn.start) * 1000,
-                        route=turn.route,
-                        status=turn.status,
-                        failure_category=turn.failure_category,
-                        nodes=tuple(turn.nodes),
-                        calls=tuple(turn.calls),
-                        fallbacks=turn.fallbacks,
-                    )
+                turn.completed = TurnObservation(
+                    turn_id=turn.turn_id,
+                    user_id=turn.user_id,
+                    session_id=turn.session_id,
+                    started_at=turn.started_at,
+                    completed_at=datetime.now(UTC),
+                    elapsed_ms=(time.perf_counter() - turn.start) * 1000,
+                    route=turn.route,
+                    status=turn.status,
+                    failure_category=turn.failure_category,
+                    nodes=tuple(turn.nodes),
+                    calls=tuple(turn.calls),
+                    fallbacks=turn.fallbacks,
                 )
+                self._turns.append(turn.completed)
             except Exception:
                 self._logger.warning("Turn telemetry unavailable")
 
@@ -229,6 +289,14 @@ class TurnTelemetry:
                 uptime_seconds=time.perf_counter() - self._start,
                 in_progress=len(self._active),
                 turns=tuple(self._turns),
+                persistence=PersistenceSummary(
+                    enabled=self._repository is not None,
+                    history_loaded=self._history_loaded,
+                    pending_writes=len(self._pending),
+                    failed_writes=self._failed_writes,
+                    degraded=self._repository is not None
+                    and (not self._history_loaded or self._failed_writes > 0),
+                ),
             )
 
 

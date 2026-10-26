@@ -120,6 +120,10 @@ class MonitorService:
             process_started_at=snapshot.process_started_at,
             uptime_seconds=snapshot.uptime_seconds,
             window_turns=len(turns),
+            persistence=snapshot.persistence,
+            retention="mongo_window"
+            if snapshot.persistence.enabled
+            else "process_window",
             service=ServiceSummary(
                 completed_turns=len(turns),
                 in_progress=snapshot.in_progress,

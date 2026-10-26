@@ -91,10 +91,17 @@ export function Monitor({ onBack }: { onBack: () => void }) {
       <div><button className="header__reset" onClick={onBack}>Conversa</button>{' '}
         <button className="header__reset" disabled={busy || forbidden.current} onClick={() => void refresh()}>Atualizar</button></div>
     </header>
-    <p>Últimos 50 turnos concluídos do processo, de todos os usuários. Reiniciar o servidor zera este registro.</p>
+    <p>{snapshot?.retention === 'mongo_window'
+      ? 'Últimos 50 turnos concluídos, de todos os usuários. O histórico é preservado no MongoDB após reiniciar.'
+      : 'Últimos 50 turnos concluídos do processo, de todos os usuários.'}</p>
     {error && <p role="alert" className="monitor__error">{error}{snapshot ? ' Dados desatualizados; exibindo a última consulta bem-sucedida.' : ''}</p>}
     {!snapshot && !error && <p role="status">Carregando monitoramento…</p>}
     {snapshot && <>
+      {snapshot.persistence?.degraded && <p role="alert" className="monitor__warning">
+        Persistência de telemetria degradada. {snapshot.persistence.failed_writes} turnos não tiveram gravação confirmada nesta execução.
+        {!snapshot.persistence.history_loaded && ' Não foi possível restaurar o histórico; a janela pode estar incompleta.'}
+      </p>}
+      {snapshot.persistence && snapshot.persistence.pending_writes > 0 && <p role="status">Gravações de telemetria pendentes: {snapshot.persistence.pending_writes}.</p>}
       <div className={`monitor__slo monitor__slo--${snapshot.slo.state}`} role="status">
         {snapshot.slo.state === 'no_data' ? 'Sem turnos para avaliar o SLO.' : snapshot.slo.ok ? 'SLO dentro do objetivo' : 'SLO fora do objetivo'}
         <small>p95 ≤ {number(snapshot.slo.latency_limit_ms, ' ms')} · erros ≤ {number(snapshot.slo.error_rate_limit * 100, '%')}</small>

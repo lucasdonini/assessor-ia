@@ -75,6 +75,29 @@ uses official contract subsets and was not published.
 
 ## Authorization and deferred work
 
+### Follow-up runtime diagnosis, 2026-10-26
+
+The user reported internal IDs in confirmations and a failed Calendar export.
+The ID originated in the trusted creation template and frontend conflict notice;
+both now omit local, operation and remote identifiers. Receipts keep internal IDs.
+
+Read-only inspection found an existing mcp_tool_error receipt. A live read-only
+MCP probe returned an explicit Developer Preview enrollment requirement for the
+configured Cloud project. OAuth test-user membership and enabling the APIs do
+not enroll a project in this program. No Google event creation or update was
+attempted during diagnosis; no application records or credentials were modified.
+
+Tool errors now retain only a fixed error_category label, with a warning diagnostic
+and safe preview-specific user wording. Old JSON receipts remain compatible.
+Third-party MCP/httpx2 debug payload logs are suppressed. The preview restriction
+does not enable REST fallback; the existing service-disabled-only policy remains.
+
+Follow-up verification: 42 focused Python tests, six Postman HTTP scenarios and
+all 50 frontend tests passed; Ruff, formatting, MyPy and frontend type checking
+passed. The frontend parallel-fork run timed out during worker startup and is
+not counted as a pass; retrying with --maxWorkers=1 --pool=threads passed.
+Live MCP creation remains blocked until the configured project is enrolled.
+
 The user authorized implementation, semantic commits and a draft PR after the
 specification delivery. Code and example configuration are now delivered; no live
 credentials, Cloud resources or application databases were changed. T-002 remains

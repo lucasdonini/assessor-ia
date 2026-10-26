@@ -24,6 +24,7 @@ async def test_model_cannot_rewrite_partial_failure_into_google_success():
     response = output["messages"][0].content
     assert "registro local permanece" in response
     assert "Falha no Google" in response
-    assert str(result.event.id) in response
+    assert str(result.event.id) not in response
+    assert str(result.operation_id) not in response
     assert result.proposal.title not in response
     generator.generate.assert_not_awaited()

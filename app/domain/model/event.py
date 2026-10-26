@@ -28,12 +28,26 @@ class Event(EventDraft):
     recorded_at: datetime
 
 
+type CalendarErrorCategory = Literal[
+    "insufficient_scope",
+    "permission_denied",
+    "unauthenticated",
+    "invalid_arguments",
+    "service_disabled",
+    "rate_limited",
+    "unavailable",
+    "preview_required",
+    "unclassified",
+]
+
+
 class CalendarReceipt(BaseModel):
     state: Literal["not_connected", "pending", "succeeded", "failed", "unknown"]
     google_id: str | None = None
     link: str | None = None
     transport: Literal["mcp", "rest"] | None = None
     code: str | None = None
+    error_category: CalendarErrorCategory | None = None
 
 
 class EventCreation(BaseModel):

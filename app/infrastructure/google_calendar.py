@@ -55,6 +55,8 @@ class GoogleCalendarGateway:
             async with self._auth.calendar_access(user_id) as token:
                 if token is None:
                     return CalendarReceipt(state="not_connected")
+                if self._config.transport == "rest":
+                    return await self._rest({"Authorization": "Bearer " + token}, event)
                 return await self._create(token, event)
         except AuthenticationError, httpx.HTTPStatusError, ValueError:
             return CalendarReceipt(state="failed", code="reconnect_required")

@@ -7,15 +7,20 @@ const json = (res, status, body) => {
 http.createServer(async (req, res) => {
   const path = req.url.split('?')[0];
   const records = (await pm.state.get('google-calendar:events')) || [];
+  if (req.method === 'GET' && path === '/mcp-calls') return json(res, 200, (await pm.state.get('google-calendar:mcp-calls')) || 0);
+  if (path.startsWith('/mcp/')) await pm.state.set('google-calendar:mcp-calls', ((await pm.state.get('google-calendar:mcp-calls')) || 0) + 1);
   if (req.method === 'GET' && path === '/records') return json(res, 200, records);
   if (req.method === 'DELETE' && path === '/records') {
+    await pm.state.set('google-calendar:mcp-calls', 0);
     await pm.state.set('google-calendar:events', []); return json(res, 200, {});
   }
-  if (req.method === 'POST' && path === '/calendars/primary/events') {
+  if (req.method === 'POST' && (path === '/calendars/primary/events' || /^\/rest\/[^/]+\/calendars\/primary\/events$/.test(path))) {
+    if (path.includes('/rest/denied/')) return json(res, 403, { error: { code: 403 } });
     const event = req.body;
     if (!event.summary || !event.start?.dateTime || !event.end?.dateTime) return json(res, 400, {});
     const saved = { ...event, id: `rest-${records.length + 1}` };
     records.push(saved); await pm.state.set('google-calendar:events', records);
+    if (path.includes('/rest/server-error/')) return json(res, 500, { error: 'Uncertain result' });
     return json(res, 200, saved);
   }
   if (req.method === 'GET' && path.startsWith('/mcp/')) return json(res, 405, {});

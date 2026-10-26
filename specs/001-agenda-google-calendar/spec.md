@@ -28,7 +28,7 @@ copied to their explicitly connected Google primary calendar. Local persistence
 survives remote failure. Responses distinguish local and Google outcomes.
 
 Included: Google application login, separate Calendar consent, local events,
-per-user credentials, conflict confirmation, MCP client with bounded REST fallback,
+per-user credentials, conflict confirmation, REST by default with an optional MCP client,
 typed write evidence, frontend account controls, and automated/manual verification.
 
 Excluded: recurrence, all-day events, invitations, notifications, reminders,
@@ -48,14 +48,14 @@ is deferred; the nine existing tools must remain compatible.
 | FR-004 | Query only the acting user's events. Support case-insensitive text over title/location/notes/source_text; one local day OR inclusive local start/end dates; default limit 20, range 1..200. Order by start then ID ascending. Without a date filter include past events too. | AC-004 |
 | FR-005 | Check interval overlaps locally before creating. On conflict, return details and request explicit confirmation; do not write either destination until confirmed. Recheck under serialization immediately before writing. | AC-005 |
 | FR-006 | After a successful local commit, attempt Google creation using the same persisted title, start/end, location and notes, for that user's connection only. Never create remotely if local creation fails. | AC-006 |
-| FR-007 | Use MCP Streamable HTTP, initialize, discover/validate create_event and invoke it. Support REST fallback only for a positively identified disabled/unavailable MCP service rejection before execution; not for general 403, permission denial, timeout, 5xx or ambiguous outcome. | AC-007 |
+| FR-007 | Use REST events.insert by default, without Workspace Developer Preview enrollment. GOOGLE_CALENDAR_TRANSPORT=mcp optionally selects Streamable HTTP, initialize, discovery and create_event. In optional MCP mode support REST fallback only for a positively identified disabled/unavailable MCP service rejection before execution; not for general 403, permission denial, timeout, 5xx or ambiguous outcome. | AC-007 |
 | FR-008 | Persist separate local and remote evidence: local ID, operation ID, Google ID/link when known, transport and state. States: not_connected, pending, succeeded, failed, unknown. Never undo a local event because Google failed. | AC-008 |
 | FR-009 | Creation claims require a real local receipt; Google success additionally requires a provider event ID. Keep these identifiers internal: chat and confirmation notices must not display local, operation or Google IDs. Preserve the local/remote distinction through specialist output, orchestration and final response. Keep history search for context, never as agenda evidence. | AC-009 |
 | FR-010 | Repeated execution of the same operation must return the existing local result and must not recreate confirmed Google events. An ambiguous remote result requires reconciliation before any further create attempt. | AC-010 |
 | NFR-001 | Preserve existing dependency directions, asynchronous I/O, Dishka composition, strict Python typing, safe public errors and configured Ruff rules. No folder restructuring. | AC-011 |
 | NFR-002 | Encrypt tokens at rest, isolate by owner, refresh per user with serialization and keep secrets out of frontend responses, logs, prompts, history, Git and model-accessible tools. | AC-002, AC-012 |
 | NFR-003 | Preserve existing financial/chat data and user ownership through additive migrations. No resets or automatic legacy-account merging. | AC-001, AC-011 |
-| NFR-004 | Remote work must fit the existing 120-second graph deadline: at most 30 seconds for the complete Calendar attempt including refresh, handshake and fallback. Cancellation must propagate and leave recoverable state. | AC-007, AC-008 |
+| NFR-004 | Remote work must fit the existing 120-second graph deadline: at most 30 seconds for the complete Calendar attempt including refresh and the selected transport. Cancellation must propagate and leave recoverable state. | AC-007, AC-008 |
 
 ## Acceptance scenarios
 
@@ -82,8 +82,9 @@ is deferred; the nine existing tools must remain compatible.
 - **AC-006 Successful creation:** database readback proves local commit; provider
   readback proves the same event exists in the connected user's primary calendar.
   Local commit failure results in zero Google mutation calls.
-- **AC-007 Provider boundary:** verify initialize/discovery/schema mapping, MCP
-  tool-level errors, HTTP 401/403/429/5xx, refresh and global deadline. Only a
+- **AC-007 Provider boundary:** verify REST default selection and payload mapping without MCP calls,
+  HTTP 401/403/429/5xx, refresh and global deadline. Preserve optional MCP
+  initialize/discovery/schema mapping and tool-level errors. Only a
   definitive service-disabled rejection permits one REST attempt. MCP timeout
   after send never triggers a second create through REST.
 - **AC-008 Partial results:** Google denial retains the local event with failed
@@ -169,9 +170,10 @@ deferred. These choices are reviewable specification decisions, not implemented
 behavior or authorization to generate code.
 
 External readiness is not verified: Cloud project/consent/client configuration,
-preview access, write scopes, redirect URIs and secret provisioning must pass the
+write scopes, redirect URIs and secret provisioning must pass the
 preflight task before real integration. Never assume the professor's setup exists.
-MCP acceptance requires one verified MCP write; REST success alone is insufficient.
+Default integration acceptance requires a verified REST write and readback.
+Preview eligibility and a verified MCP write apply only to the optional MCP mode.
 
 ## Sources and completion criteria
 
@@ -179,7 +181,7 @@ Official sources checked on 2026-10-26:
 - [Calendar MCP configuration](https://developers.google.com/workspace/calendar/api/guides/configure-mcp-server): preview and OAuth/service prerequisites.
 - [MCP create_event](https://developers.google.com/workspace/calendar/api/v3/reference/mcp/tools_list/create_event): provider input/output contract.
 - [Web OAuth](https://developers.google.com/identity/protocols/oauth2/web-server): server consent and token lifecycle.
-- [REST events.insert](https://developers.google.com/workspace/calendar/api/v3/reference/events/insert): fallback contract and write scopes.
+- [REST events.insert](https://developers.google.com/workspace/calendar/api/v3/reference/events/insert): default creation contract and write scopes.
 
 Completion requires all acceptance evidence in tasks.md, migration preservation,
 two-user isolation, representative model evaluation and real MCP/Calendar readback.

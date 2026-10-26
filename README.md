@@ -288,11 +288,13 @@ Cada identidade Google (subject verificado) corresponde a um usuario do Assessor
 O fluxo aceita apenas a mesma conta Google para login e Calendar. O destino desta
 versao e o calendario principal, com eventos unicos e horarios definidos.
 
-Configure um cliente OAuth Web e os redirects em .env.example. Configure o cliente
-Calendar como agente de IA quando exigido pelo Google; um cliente separado pode
-ser informado. Habilite Calendar API e Calendar MCP API e confirme elegibilidade
-no programa de preview. Nenhum recurso Cloud e provisionado automaticamente.
-Consulte a [configuracao oficial](https://developers.google.com/workspace/calendar/api/guides/configure-mcp-server).
+Configure um cliente OAuth Web e os redirects em .env.example. Um cliente separado
+para Calendar pode ser informado. Habilite a Google Calendar API e configure os
+usuarios de teste enquanto o consentimento estiver em modo de teste.
+O padrao GOOGLE_CALENDAR_TRANSPORT=rest nao exige o programa de preview.
+Opcionalmente, GOOGLE_CALENDAR_TRANSPORT=mcp exige Calendar MCP API e os requisitos
+especificos do [MCP oficial](https://developers.google.com/workspace/calendar/api/guides/configure-mcp-server).
+Nenhum recurso Cloud e provisionado automaticamente.
 O escopo solicitado para escrita e calendar.events, separado dos escopos de login.
 A disponibilidade real desse escopo/cliente deve ser verificada no ambiente Google.
 
@@ -329,8 +331,9 @@ o backend revalida os conflitos sob bloqueio por usuario. Se eles mudarem, exige
 nova confirmacao. A proposta expira em 10 minutos. O modelo nao pode aprova-la.
 
 O servico grava localmente antes de tentar Google, com prazo total de 30 segundos.
-O caminho principal usa initialize, tools/list e create_event via MCP. REST so e
-usado diante de uma rejeicao estruturada que identifique MCP SERVICE_DISABLED.
+O caminho principal usa events.insert pela API REST, com o mesmo token por usuario.
+No modo MCP opcional, usa initialize, tools/list e create_event; somente uma
+rejeicao estruturada MCP SERVICE_DISABLED permite fallback REST.
 Permissao negada, 5xx e timeout nao causam segunda gravacao. Falha remota preserva
 sempre o evento local. pending/unknown significam resultado incerto: confira o
 Calendar antes de repetir. Recibos bem-sucedidos sao reutilizados por operation_id.
@@ -354,8 +357,8 @@ Os testes de banco usam containers descartaveis. Para os cenarios HTTP, inicie
 `postman simulation run postman/simulations/google-calendar/google-calendar.sim.yaml --port 4900 --no-history`.
 Defina CALENDAR_SIMULATION_URL=http://localhost:4900/google e execute
 `uv run pytest -m integration tests/integration/test_google_calendar_http.py`.
-A simulacao cobre sucesso MCP, fallback permitido, permissao negada, erro de tool
-e erro apos envio. Os detalhes estao no contexto da simulacao em postman/simulations.
+A simulacao cobre REST como padrao, rejeicao e resultado incerto sem retentativa,
+alem dos cenarios do MCP opcional. Os detalhes estao no contexto da simulacao em postman/simulations.
 Ela nao usa credenciais reais nem confirma a elegibilidade do projeto Google.
-O login/consentimento e uma criacao MCP real com readback continuam sendo gates
+O login/consentimento e uma criacao REST real com readback continuam sendo gates
 antes de considerar a funcionalidade validada em ambiente real.

@@ -49,12 +49,13 @@ manifests. No changes to docker-compose.yml or alembic.ini are needed by this pl
   frontend URLs, MCP endpoint, encryption key/key ID and provider deadline through
   existing SettingsProvider. Separate login and agent OAuth clients are supported
   when required by Google's agent-client policy. No private SDK imports.
-- Discover create_event and validate the expected schema. Map title to summary,
+- In optional MCP mode, discover create_event and validate the expected schema. Map title to summary,
   aware times to startTime/endTime, timezone to America/Sao_Paulo and use primary.
   Map a successful provider ID/link to a typed receipt. MCP isError is failure even
   when HTTP is 200. Treat provider text as data, never as model instructions.
 - REST mapping uses summary, start/end dateTime/timeZone and the primary calendar.
-  Restrict fallback to a structured, definitive MCP-service-disabled rejection.
+  Use REST by default; preserve MCP as an explicit optional transport.
+  In MCP mode restrict fallback to a structured, definitive service-disabled rejection.
   Generic exception text or any occurrence of a hostname is not sufficient.
 - Keep remote export in the event service workflow so a model cannot report local
   success then omit the Google attempt, change its parameters or export another
@@ -109,7 +110,7 @@ not tokens, authorization codes, raw provider bodies or event contents.
    dependency failure scenarios, plus protocol-faithful MCP tests. No Postman setup
    is necessary for this documentation-only delivery.
 5. Exercise real authorized Google test accounts only after controlled checks;
-   read back local and Google event IDs. Record whether MCP or fallback was used.
+   read back local and Google event IDs. Record the selected transport; default acceptance uses REST.
 6. Evaluate representative Portuguese prompts with actual tool traces and
    persistence evidence; prompt string tests alone cannot establish correctness.
 7. Run appropriate Ruff, formatting, MyPy, pytest and frontend checks, including
@@ -121,10 +122,10 @@ Authentication must never fall back to trusting X-User-ID after an OAuth failure
 
 ## Risks and readiness
 
-No unresolved product choices remain after the user's four answers. Cloud preview
-eligibility, agent OAuth settings, approved scopes and live account access are
-external preflight gates, not verified facts. If eligibility blocks a real MCP
-write, keep the feature incomplete; do not relabel REST success as MCP evidence.
+The user approved REST as the default after the Google project proved ineligible
+for Workspace Developer Preview. Existing per-user OAuth, persistence and conflict
+rules remain. Approved scopes and live REST creation/readback are external gates.
+Preview eligibility and MCP write validation apply only to optional MCP mode.
 Provisioning secrets or modifying configuration is not authorized by this plan.
 
 ## Implementation decisions and evidence

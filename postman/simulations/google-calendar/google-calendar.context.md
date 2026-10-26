@@ -35,6 +35,10 @@ the tests also verify record counts via /records. Stop the foreground run with C
 ## Observations
 
 <!-- begin:observations -->
+2026-10-26: REST-default follow-up passed all nine cases. The google member served
+three direct REST cases and six optional MCP cases; no member stayed silent.
+REST success, 403 and commit-then-500 each reported zero MCP calls; uncertain
+creation retained one remote record without retry. Real Google is still untested.
 2026-10-26: Follow-up six-case run passed. The google member served all scenarios,
 including preview-required as an HTTP 200 tool error, zero remote records and no
 REST fallback. No member stayed silent. Only fixed diagnostic labels are retained.

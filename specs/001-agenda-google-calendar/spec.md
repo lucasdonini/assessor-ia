@@ -1,6 +1,6 @@
 # 001 Agenda persistence and per-user Google Calendar
 
-Status: Ready
+Status: In progress
 Owner: Project maintainer
 Created: 2026-10-26
 Last updated: 2026-10-26
@@ -131,6 +131,12 @@ DELETE /api/calendar/connection. OAuth initiation returns/redirects to provider
 authorization; callbacks redirect to a fixed frontend destination. Connection
 responses expose status/account display only. No raw token response.
 
+Conflict confirmation adds GET /api/agenda/proposals and
+POST /api/agenda/proposals/{operation_id}/confirm. Both require the verified web
+session; confirmation additionally requires CSRF. The agent has no equivalent
+confirmation argument or tool. The interface displays the exact proposed interval
+and current local conflicts before confirmation.
+
 Public anonymous demo user creation/listing and UUID switching are retired from
 the web flow. Legacy data remains preserved but inaccessible through UUID spoofing.
 Manual verified legacy linking is a separate future feature; no destructive
@@ -178,3 +184,11 @@ Completion requires all acceptance evidence in tasks.md, migration preservation,
 two-user isolation, representative model evaluation and real MCP/Calendar readback.
 Ready means no product questions block planning; it does not mean implemented,
 externally provisioned or approved for code generation.
+
+## Delivery checkpoint (2026-10-26)
+
+The user subsequently authorized implementation, semantic commits and a draft PR.
+Backend, frontend and controlled verification are delivered. The status remains
+In progress because Cloud preflight, real per-user consent/MCP readback and the
+representative live-model evaluation have not been performed. Do not infer these
+from successful local tests. See tasks.md for exact evidence and release gates.

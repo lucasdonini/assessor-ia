@@ -12,18 +12,18 @@ Last updated: 2026-10-26
 - [ ] T-002: Verify external Cloud/OAuth prerequisites and sanitized current MCP
   schema. Select maintained compatible libraries and least-privilege write scopes.
   Depends on T-001. No live mutation or Cloud configuration without authorization.
-- [ ] T-003: Deliver authenticated owner resolution, sessions and Calendar consent
+- [x] T-003: Deliver authenticated owner resolution, sessions and Calendar consent
   lifecycle; protect existing private routes. Depends on T-002.
-- [ ] T-004: Add event domain/contracts, additive migrations and repositories.
+- [x] T-004: Add event domain/contracts, additive migrations and repositories.
   Verify existing-data preservation and scoped filters. Depends on T-003.
-- [ ] T-005: Add conflict proposals, serialized check/create, operation receipts
+- [x] T-005: Add conflict proposals, serialized check/create, operation receipts
   and local-first export workflow. Depends on T-004.
-- [ ] T-006: Deliver async OAuth credential/provider adapters, MCP discovery and
+- [x] T-006: Deliver async OAuth credential/provider adapters, MCP discovery and
   create, classified fallback, refresh serialization and uncertain-outcome handling.
   Depends on T-002/T-003/T-005.
-- [ ] T-007: Compose agenda tools and typed write evidence; update agenda and
+- [x] T-007: Compose agenda tools and typed write evidence; update agenda and
   orchestration prompts; preserve conversational history. Depends on T-005/T-006.
-- [ ] T-008: Add frontend login/logout/Calendar connection controls and replace
+- [x] T-008: Add frontend login/logout/Calendar connection controls and replace
   UUID selection; update client auth and CSRF handling. Depends on T-003/T-007.
 - [ ] T-009: Run deterministic, disposable-database, simulated-provider, regression
   and representative model checks. Depends on T-003 through T-008.
@@ -35,36 +35,60 @@ Last updated: 2026-10-26
 
 | Requirement | Acceptance | Tasks | Planned evidence | Result |
 | --- | --- | --- | --- | --- |
-| FR-001 | AC-001 | T-003/008/009 | OAuth/session and existing route ownership tests | Not run |
-| FR-002 | AC-002 | T-003/006/008/010 | Consent/disconnect and two-account evaluation | Not run |
-| FR-003 | AC-003 | T-004/005/009 | Validation and database readback | Not run |
-| FR-004 | AC-004 | T-004/009 | PostgreSQL filters and timezone boundaries | Not run |
-| FR-005 | AC-005 | T-005/009 | Conflict confirmation and concurrent creation | Not run |
-| FR-006 | AC-006 | T-005/006/010 | Local-first trace and both destination readbacks | Not run |
-| FR-007 | AC-007 | T-002/006/009/010 | Protocol discovery, failure simulation and real MCP | Not run |
-| FR-008 | AC-008 | T-005/006/009 | Partial failure, cancellation and crash recovery | Not run |
-| FR-009 | AC-009 | T-007/009 | Typed receipt validation and Portuguese model evaluation | Not run |
-| FR-010 | AC-010 | T-005/006/009 | Repeated calls, unknown-state retry suppression | Not run |
-| NFR-001 | AC-011 | T-004/007/009 | Architecture review, typing/lint and regressions | Not run |
-| NFR-002 | AC-002/012 | T-003/006/009 | Encryption, redaction, CSRF and refresh/disconnect races | Not run |
-| NFR-003 | AC-001/011 | T-003/004/009 | Populated previous-schema migration and ownership | Not run |
-| NFR-004 | AC-007/008 | T-006/009 | Total deadline and propagated cancellation | Not run |
+| FR-001 | AC-001 | T-003/008/009 | OAuth/session and existing route ownership tests | Passed controlled OAuth/session/forged-header checks; real login pending |
+| FR-002 | AC-002 | T-003/006/008/010 | Consent/disconnect and two-account evaluation | Passed controlled consent/isolation/disconnect; real consent pending |
+| FR-003 | AC-003 | T-004/005/009 | Validation and database readback | Passed input validation and PostgreSQL creation |
+| FR-004 | AC-004 | T-004/009 | PostgreSQL filters and timezone boundaries | Passed controlled queries, date boundaries and owner filters |
+| FR-005 | AC-005 | T-005/009 | Conflict confirmation and concurrent creation | Passed concurrent conflict, changed proposal and confirmation checks |
+| FR-006 | AC-006 | T-005/006/010 | Local-first trace and both destination readbacks | Passed local-first and simulated provider readback; real readback pending |
+| FR-007 | AC-007 | T-002/006/009/010 | Protocol discovery, failure simulation and real MCP | Passed five HTTP simulation cases; real MCP pending |
+| FR-008 | AC-008 | T-005/006/009 | Partial failure, cancellation and crash recovery | Passed local retention, timeout, cancellation and uncertain response checks |
+| FR-009 | AC-009 | T-007/009 | Typed receipt validation and Portuguese model evaluation | Passed deterministic receipt protection; live-model evaluation pending |
+| FR-010 | AC-010 | T-005/006/009 | Repeated calls, unknown-state retry suppression | Passed repeated operation/confirmation and uncertain-response checks |
+| NFR-001 | AC-011 | T-004/007/009 | Architecture review, typing/lint and regressions | Passed architecture regression, Ruff and MyPy |
+| NFR-002 | AC-002/012 | T-003/006/009 | Encryption, redaction, CSRF and refresh/disconnect races | Passed encryption, signature, state replay, CSRF and race checks |
+| NFR-003 | AC-001/011 | T-003/004/009 | Populated previous-schema migration and ownership | Passed populated previous-schema migration and legacy-owner preservation |
+| NFR-004 | AC-007/008 | T-006/009 | Total deadline and propagated cancellation | Passed service timeout/cancellation checks; five HTTP failure cases |
 
 ## Verification record
 
-| Date | Procedure | Result | Limitation |
-| --- | --- | --- | --- |
-| 2026-10-26 | Read supplied HTML, relevant source, tests, migrations and project instructions | Completed | Static assessment; no application or DB mutation |
-| 2026-10-26 | Read official Google MCP configuration/create contract and web OAuth/REST insert references | Completed | Public documentation only; no credentials or live calls |
-| 2026-10-26 | Resolve four user-facing scope decisions | Completed | Remaining detailed defaults explicitly recorded in spec |
-| 2026-10-26 | Runtime suites and Google end-to-end checks | Not run | Documentation-only task; implementation absent |
+All procedures below ran on 2026-10-26. Dependency deprecation warnings remain;
+there were no test failures in the final successful runs.
+
+| Procedure | Result | Evidence / limitation |
+| --- | --- | --- |
+| `python -m ruff check .` and `python -m ruff format --check .` | Passed | Repository checks; 243 Python files formatted |
+| `python -m mypy .` | Passed | 153 application source files |
+| `python -m pytest -q --junitxml=.pytest_cache/agenda-final-unit.xml` | Passed | 445 unit tests; synthetic identities, signed-token rejection, safe final receipts, existing MCP regressions |
+| `python -m pytest -m integration --ignore=tests/integration/test_google_calendar_http.py -q` | Passed | Disposable PostgreSQL/MongoDB, local Qdrant; concurrency, owner filters, OAuth state and populated previous-schema migration |
+| `python -m pytest tests/integration/test_google_calendar_http.py -m integration -q` with CALENDAR_SIMULATION_URL | Passed | Five real-HTTP client cases against Postman; request events verified; actual Google not contacted |
+| `npm run --prefix frontend test` | Passed | 50 tests, including logout privacy and explicit conflict confirmation |
+| Frontend `type-check`, `lint`, and `build` | Passed | TypeScript, Oxlint and production Vite bundle |
+| `git diff --check` | Passed | No whitespace errors |
+| Cloud preflight, real OAuth consent and Google/MCP event readback | Not run | Deployment credentials and preview configuration are not provisioned by this change |
+| Representative live-model evaluation | Not run | Deterministic receipt protection is tested; actual tool selection/clarification still needs evaluation |
+
+Windows sandbox restrictions initially blocked async test execution and Postman
+state files; authorized runs outside those restrictions passed. Orbit discovery
+failed DNS; Postman owner-mock search required a login. The local synthetic mock
+uses official contract subsets and was not published.
 
 ## Authorization and deferred work
 
-Only specification documents are delivered. No implementation, configuration,
-Cloud provisioning, secret changes, commits or pushes are authorized or performed.
-Future code generation still requires the explicit request required by AGENTS.md.
-No commit sequence is scheduled because commits were not requested.
+The user authorized implementation, semantic commits and a draft PR after the
+specification delivery. Code and example configuration are now delivered; no live
+credentials, Cloud resources or application databases were changed. T-002 remains
+open for external preflight; T-009 is locally verified but live-model evaluation
+remains open; T-010 requires real user consent and MCP readback.
+
+Semantic delivery commits:
+- 3dae4d3: docs(sdd), initial specification.
+- 7ef58b2: feat(agenda), authenticated backend, persistence and controlled tests.
+- 880200c: feat(web), login/connection/conflict UI and frontend regressions.
+- 23b5a9f: test(calendar), local HTTP simulation and run context.
+
+Do not mark the feature Implemented before the real-service and model-evaluation
+gates pass. A draft PR is for review and explicitly does not imply release readiness.
 
 Deferred: legacy-account claim/migration UI, two-way sync, recurrence, event
 editing/deletion, automatic remote retries, external agenda-tool publication and

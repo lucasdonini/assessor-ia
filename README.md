@@ -19,8 +19,8 @@ cancelamento. O servidor reutiliza os serviços e as ferramentas do agente, sem
 iniciar o FastAPI ou o grafo.
 
 Esta integração é **local e de um usuário por processo**. Configure
-`ASSESSOR_MCP_USER_ID` com o UUID de um usuário existente. Com a API em execução,
-`GET /api/users` lista os usuários cadastrados. O servidor valida o UUID no
+`ASSESSOR_MCP_USER_ID` com o UUID de um usuário existente. Após o login Google,
+`GET /api/auth/me` informa o UUID da conta autenticada. O servidor valida o UUID no
 PostgreSQL ao iniciar e vincula esse usuário a cada chamada. O modelo não pode
 escolher outro `user_id` pelos argumentos das ferramentas. Quem puder iniciar o
 processo com sua configuração local terá acesso às capacidades desse usuário;
@@ -196,43 +196,26 @@ pelo container podem ser ajustadas no `docker-compose.yml` conforme o ambiente.
 
 ## API
 
-### Enviar mensagem
+As rotas privadas usam a sessao do login Google. O servidor ignora X-User-ID
+como identidade. Operacoes de escrita exigem X-CSRF-Token, obtido em
+GET /api/auth/me; a interface faz isso automaticamente. Credenciais Google
+permanecem no backend, nunca no navegador ou no contexto do modelo.
 
-`POST /api/chat`
+- GET /api/auth/google/start e /api/auth/google/callback: login OIDC.
+- GET /api/auth/me: usuario autenticado e token CSRF; 401 sem sessao valida.
+- POST /api/auth/logout: invalida a sessao (validade absoluta de 24 horas).
+- POST /api/chat/{session_id}: recebe message e devolve session_id, content e called_agents.
+- POST /api/session/{session_id}/finalize: finaliza a conversa do usuario autenticado.
+- POST /api/profile: salva o perfil do usuario autenticado.
+- POST /api/calendar/google/connect: inicia consentimento separado para Calendar.
+- GET /api/calendar/google/callback: conclui o vinculo da mesma conta Google.
+- GET /api/calendar/connection e DELETE /api/calendar/connection: estado e desconexao.
+- GET /api/agenda/proposals: conflitos aguardando confirmacao.
+- POST /api/agenda/proposals/{operation_id}/confirm: confirma a proposta exata.
+- GET /health, /docs e /redoc: saude e documentacao publica.
 
-Corpo da requisição:
-
-```json
-{
-  "message": "Quanto gastei com alimentação?"
-}
-```
-
-Em caso de sucesso, a API devolve `200` com uma string JSON contendo a resposta
-do assistente:
-
-```json
-"Você gastou R$ 150,50 com alimentação."
-```
-
-Exemplo com curl:
-
-```bash
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Quanto gastei com alimentação?"}'
-```
-
-Falhas de validação seguem o formato padrão do FastAPI. Erros conhecidos de
-aplicação usam `code` e `detail`; timeout retorna `504`; erros inesperados retornam
-uma mensagem genérica sem expor detalhes internos.
-
-### Endpoints auxiliares
-
-- `GET /health` — verifica se a API está ativa;
-- `GET /docs` — documentação interativa Swagger UI;
-- `GET /redoc` — documentação ReDoc;
-- `GET /` — interface web compilada.
+A API nao publica mais cadastro/listagem anonima de usuarios. UUIDs conhecidos
+nao autorizam acesso aos dados. Erros internos usam mensagens publicas seguras.
 
 ## Qualidade e testes
 
@@ -297,69 +280,82 @@ para `main`. Não inclua arquivos `.env`, logs ou outros artefatos locais no
 versionamento.
 
 
-## Uso com vários usuários (demonstração)
+## Agenda local e Google Calendar por usuario
 
-A interface permite criar usuários e selecionar o usuário ativo. Cada usuário tem
-um UUID estável e pode abrir várias conversas. O botão **Nova sessão** troca apenas
-a conversa; transações e histórico continuam associados ao mesmo usuário.
+Esta funcionalidade e descrita em [spec.md](specs/001-agenda-google-calendar/spec.md).
+A aplicacao usa Google para login; conectar Calendar exige consentimento adicional.
+Cada identidade Google (subject verificado) corresponde a um usuario do Assessor.
+O fluxo aceita apenas a mesma conta Google para login e Calendar. O destino desta
+versao e o calendario principal, com eventos unicos e horarios definidos.
 
-- `POST /api/users`: cria um usuário e retorna `id` e `created_at`.
-- `GET /api/users`: lista os usuários de demonstração.
-- `POST /api/chat/{session_id}`: exige `X-User-ID` e o corpo habitual com `message`.
-- `POST /api/session/{session_id}/finalize`: exige o mesmo cabeçalho.
+Configure um cliente OAuth Web e os redirects em .env.example. Configure o cliente
+Calendar como agente de IA quando exigido pelo Google; um cliente separado pode
+ser informado. Habilite Calendar API e Calendar MCP API e confirme elegibilidade
+no programa de preview. Nenhum recurso Cloud e provisionado automaticamente.
+Consulte a [configuracao oficial](https://developers.google.com/workspace/calendar/api/guides/configure-mcp-server).
+O escopo solicitado para escrita e calendar.events, separado dos escopos de login.
+A disponibilidade real desse escopo/cliente deve ser verificada no ambiente Google.
 
-O cabeçalho é obrigatório e deve conter o UUID de um usuário cadastrado. O servidor
-retorna 422 para identidade ausente ou malformada e 404 para usuário inexistente.
-Sessões têm proprietário imutável: fornecer o ID de uma sessão de outra pessoa não
-permite escrever nela ou recuperar seu resumo. Transações, saldos e buscas de
-histórico são filtrados pelo usuário em todos os repositórios.
+GOOGLE_TOKEN_ENCRYPTION_KEY deve conter uma chave Fernet gerada e guardada como
+segredo de implantacao. GOOGLE_TOKEN_KEY_ID identifica essa chave; mantenha chave e
+ID enquanto houver tokens criptografados. Trocar apenas a chave invalida as
+conexoes existentes: desconecte e refaca os consentimentos ou execute uma migracao
+explicita de chaves. Nao coloque chaves nem tokens no Git. Os antigos nomes
+`gcp-oauth.keys.json` e `google-calendar.token.json` sao ignorados, mas nao sao usados
+por esta integracao Web. Nao ha token global compartilhado.
 
-Não há autenticação: informar um UUID seleciona uma identidade, sem comprovar quem
-a utiliza. O cadastro e a listagem são públicos para facilitar os exercícios.
-O FAQ institucional continua compartilhado entre todos.
+Em localhost, AUTH_SECURE_COOKIES=false permite HTTP. Fora de localhost, mantenha
+true e HTTPS. Para Vite, APP_FRONTEND_URL pode ser http://localhost:5173/; as rotas
+/api passam pelo proxy existente. Redirects OAuth continuam apontando para o
+backend em 8000. Os URLs cadastrados no Google devem coincidir exatamente.
 
-### Preparar um ambiente anterior à mudança
+Execute a migracao Alembic para head no seu fluxo normal de implantacao. As novas
+revisoes sao aditivas: nao removem transacoes nem alteram proprietarios. Usuarios
+de demonstracao e seus dados ficam preservados, sem vinculo automatico a contas
+Google; login novo cria uma identidade nova. A recuperacao verificada desses dados
+legados exige uma funcionalidade futura. Nao use downgrade em banco populado como
+rollback: os downgrades removem as tabelas novas e destinam-se a ambientes de teste
+ou a operacoes explicitamente planejadas. Nenhuma migracao foi executada nos bancos
+da aplicacao durante esta entrega.
 
-Esta versão não converte dados antigos. As novas revisões Alembic criam `users` e
-adicionam `transactions.user_id` obrigatório. A segunda revisão exige a tabela de
-transações vazia; falhará se houver registros antigos sem proprietário.
+Ao pedir um evento, informe titulo, inicio e termino/duracao; a aplicacao pergunta
+quando faltar algum desses dados, sem assumir uma hora. query_events consulta so
+os compromissos locais. Datas usam America/Sao_Paulo; o intervalo final e inclusivo
+na consulta. Sem filtro de data, eventos passados tambem aparecem. Compromissos
+exclusivos do Google nao sao usados para afirmar disponibilidade.
 
-Para reiniciar o ambiente estudantil, pare a aplicação, recrie somente seu banco
-PostgreSQL de desenvolvimento e a coleção `sessions` do MongoDB e execute
-`uv run alembic upgrade head`. Preserve o Qdrant, que contém a FAQ compartilhada.
-Use os recursos de administração do banco que você provisionou; o Compose deste
-projeto não gerencia esses bancos. Não aplique esse procedimento a bancos de outros
-projetos. A implementação não executa limpeza automática na inicialização.
+Conflitos bloqueiam a escrita. Use Revisar conflitos e depois Confirmar conflito;
+o backend revalida os conflitos sob bloqueio por usuario. Se eles mudarem, exige
+nova confirmacao. A proposta expira em 10 minutos. O modelo nao pode aprova-la.
 
-No navegador, remova as chaves `assessor-ia.user-id` e as que começam com
-`assessor-ia.session-id` ao recriar os bancos. A chave de sessão antiga, sem usuário,
-é ignorada. Depois gere o frontend com `npm run --prefix frontend build`, inicie a
-aplicação e crie dois usuários pela interface.
+O servico grava localmente antes de tentar Google, com prazo total de 30 segundos.
+O caminho principal usa initialize, tools/list e create_event via MCP. REST so e
+usado diante de uma rejeicao estruturada que identifique MCP SERVICE_DISABLED.
+Permissao negada, 5xx e timeout nao causam segunda gravacao. Falha remota preserva
+sempre o evento local. pending/unknown significam resultado incerto: confira o
+Calendar antes de repetir. Recibos bem-sucedidos sao reutilizados por operation_id.
+Outra mensagem intencional do usuario constitui outra operacao.
 
-### Execução e limites desta etapa
+Operacoes incertas exigem conciliacao manual por um operador, usando o recibo em
+event_operations e uma consulta de leitura no Google antes de qualquer decisao de
+nova criacao. Nao ha retentativa automatica nem garantia de exactly-once entre os
+dois sistemas. Reiniciar nao reenvia operacoes pendentes. Desconectar remove tokens
+locais, tenta revoga-los e preserva ambos os calendarios; a resposta indica se a
+revogacao remota falhou. Refresh, uso e desconexao sao serializados por usuario.
+Mantenha apenas um worker, conforme a restricao existente do projeto.
 
-Execute o backend com um único worker. O grafo é compartilhado, mas recebe um
-contexto imutável por execução. As ferramentas obtêm a identidade de um `ContextVar`
-isolado por tarefa; seus argumentos públicos não incluem o proprietário. Os serviços
-recebem `user_id` explicitamente, sem depender desse mecanismo de infraestrutura.
+A memoria de conversas continua disponivel, mas nao comprova a existencia de
+compromissos. O frontend, o servidor MCP financeiro local e os servicos financeiros
+mantem suas responsabilidades; o MCP financeiro nao recebe acesso a tokens Google.
 
-A memória do LangGraph usa a combinação de usuário e sessão e permanece em memória:
-reiniciar o processo perde o checkpoint, mas preserva mensagens e resumos no MongoDB
-e transações no PostgreSQL. As mensagens do MongoDB não reconstroem automaticamente
-o checkpoint. A tela exibe somente mensagens trocadas enquanto está aberta.
+### Verificacao local sem Google
 
-Envio e finalização da mesma sessão são serializados no processo. Sessões diferentes
-podem avançar em paralelo. Múltiplos workers exigirão checkpoint compartilhado e
-coordenação distribuída; não fazem parte desta entrega.
-
-### Validar isolamento
-
-Os testes unitários habituais continuam disponíveis com `uv run pytest` e
-`npm test --prefix frontend`. Os testes em `tests/integration/test_multiuser.py` e
-`tests/integration/test_multiuser_mongodb.py` usam containers descartáveis e não os
-bancos configurados para uso da aplicação. Execute-os com Docker disponível usando
-`uv run pytest -m integration tests/integration/test_multiuser.py tests/integration/test_multiuser_mongodb.py`.
-
-Eles cobrem saldos, buscas e alterações financeiras por proprietário, propriedade
-imutável das sessões e filtragem de histórico. Os testes de grafo e frontend também
-cobrem execuções concorrentes e troca de usuário com resposta pendente.
+Os testes de banco usam containers descartaveis. Para os cenarios HTTP, inicie
+`postman simulation run postman/simulations/google-calendar/google-calendar.sim.yaml --port 4900 --no-history`.
+Defina CALENDAR_SIMULATION_URL=http://localhost:4900/google e execute
+`uv run pytest -m integration tests/integration/test_google_calendar_http.py`.
+A simulacao cobre sucesso MCP, fallback permitido, permissao negada, erro de tool
+e erro apos envio. Os detalhes estao no contexto da simulacao em postman/simulations.
+Ela nao usa credenciais reais nem confirma a elegibilidade do projeto Google.
+O login/consentimento e uma criacao MCP real com readback continuam sendo gates
+antes de considerar a funcionalidade validada em ambiente real.

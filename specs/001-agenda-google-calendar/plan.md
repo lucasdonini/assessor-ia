@@ -126,3 +126,25 @@ eligibility, agent OAuth settings, approved scopes and live account access are
 external preflight gates, not verified facts. If eligibility blocks a real MCP
 write, keep the feature incomplete; do not relabel REST success as MCP evidence.
 Provisioning secrets or modifying configuration is not authorized by this plan.
+
+## Implementation decisions and evidence
+
+The user's subsequent implementation request authorized code, example configuration,
+semantic commits and a draft PR. No live environment configuration was changed.
+Conflict confirmation uses a CSRF-protected HTTP action and an explicit frontend
+button, never a tool argument. MongoDB OAuth transactions are single-use and checked
+for expiration independently of TTL cleanup. Token refresh, export and disconnect
+share an owner-level lock for the supported single-worker deployment.
+
+The final agenda write response is generated from server-collected tool receipts
+using trusted status templates. It contains a real local ID and remote state without
+echoing event contents. This protects the checkpoint/final answer from model
+rewriting of partial failures, while normal non-write responses retain the existing
+output guardrail. Payload logging is redacted for the agenda tools; OAuth query
+parameters are removed from Uvicorn callback access records.
+
+The installed MCP v2 SDK wraps HTTP errors as MCPError, so a public HTTP response
+hook retains structured rejection evidence for fallback classification. Cleanup
+failure cannot replace an already obtained receipt or cause a second create.
+Five real-HTTP simulation cases passed, including commit followed by HTTP 500.
+Current checks and remaining real-service/model gates are recorded in tasks.md.

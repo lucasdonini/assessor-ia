@@ -24,7 +24,7 @@ describe('finalizeSession', () => {
     })
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/session/session-123/finalize',
-      { method: 'POST', headers: { 'X-User-ID': 'user-123' } },
+      { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '' } },
     )
   })
 
@@ -58,7 +58,7 @@ describe('finalizeSession', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/session/sess%C3%A3o%20123/finalize',
-      { method: 'POST', headers: { 'X-User-ID': 'user-123' } },
+      { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '' } },
     )
   })
 

@@ -16,7 +16,7 @@ describe('sendChatMessage', () => {
         }),
         {
           status: 200,
-          headers: { 'Content-Type': 'application/json', 'X-User-ID': 'user-123' },
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '' },
         },
       ),
     )
@@ -31,7 +31,7 @@ describe('sendChatMessage', () => {
     })
     expect(fetchMock).toHaveBeenCalledWith('/api/chat/session-123', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-User-ID': 'user-123' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '' },
       body: JSON.stringify({ message: 'Minha pergunta' }),
     })
   })
@@ -93,18 +93,18 @@ describe('sendChatMessage', () => {
     new Response('conteúdo inválido', { status: 200 }),
     new Response(JSON.stringify({ session_id: 'session-123' }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json', 'X-User-ID': 'user-123' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '' },
     }),
     new Response(
       JSON.stringify({ session_id: 'outra-sessão', content: 'texto' }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json', 'X-User-ID': 'user-123' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '' },
       },
     ),
     new Response(JSON.stringify({ session_id: 'session-123', content: 1 }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json', 'X-User-ID': 'user-123' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '' },
     }),
   ])('rejeita resposta em formato inesperado', async (response) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response))

@@ -1,3 +1,5 @@
+import { mutationHeaders } from './auth'
+
 const CHAT_ENDPOINT = '/api/chat'
 
 type ChatRequest = {
@@ -12,7 +14,7 @@ export type ChatResponse = {
 
 export async function sendChatMessage(
   sessionId: string,
-  userId: string,
+  _userId: string,
   message: string,
 ): Promise<ChatResponse> {
   let apiResponse: Response
@@ -22,7 +24,7 @@ export async function sendChatMessage(
       `${CHAT_ENDPOINT}/${encodeURIComponent(sessionId)}`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-ID': userId },
+        headers: mutationHeaders(),
         body: JSON.stringify({ message } satisfies ChatRequest),
       },
     )

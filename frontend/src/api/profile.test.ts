@@ -13,7 +13,7 @@ const PROFILE: SaveProfileRequest = {
 }
 
 describe('saveProfile', () => {
-  it('sends the selected user in the header and profile data in the body', async () => {
+  it('sends CSRF and profile data without selecting an owner', async () => {
     const responseBody = { user_id: 'user-123', ...PROFILE }
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(responseBody), { status: 200 }),
@@ -27,7 +27,7 @@ describe('saveProfile', () => {
     })
     expect(fetchMock).toHaveBeenCalledWith('/api/profile', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-User-ID': 'user-123' },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '' },
       body: JSON.stringify(PROFILE),
     })
   })

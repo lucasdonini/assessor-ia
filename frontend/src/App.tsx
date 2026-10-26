@@ -1,4 +1,4 @@
-import { createUser, listUsers, type User } from './api/user'
+import { currentAccount, logout, calendarConnection, connectCalendar, disconnectCalendar, eventProposals, confirmProposal, type Account, type CalendarConnection, type EventProposal } from './api/auth'
 import {
   type KeyboardEvent,
   type SubmitEvent,
@@ -344,85 +344,96 @@ function Chat({ userId }: { userId: string }) {
   )
 }
 
-const USER_STORAGE_KEY = 'assessor-ia.user-id'
-
 function App() {
-  const [users, setUsers] = useState<User[]>([])
-  const [userId, setUserId] = useState('')
+  const [account, setAccount] = useState<Account | null>(null)
   const [loading, setLoading] = useState(true)
-  const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
-  const [reload, setReload] = useState(0)
+  const [busy, setBusy] = useState(false)
+  const [connection, setConnection] = useState<CalendarConnection | null>(null)
+  const [proposals, setProposals] = useState<EventProposal[]>([])
+  const [notice, setNotice] = useState('')
   const [view, setView] = useState<'chat' | 'profile'>('chat')
 
   useEffect(() => {
     let active = true
-    setLoading(true)
-    setError('')
-    listUsers().then((loaded) => {
-      if (!active) return
-      setUsers(loaded)
-      let saved: string | null = null
-      try { saved = localStorage.getItem(USER_STORAGE_KEY) } catch { /* Memory only. */ }
-      setUserId(loaded.find((user) => user.id === saved)?.id ?? loaded[0]?.id ?? '')
-    }).catch(() => {
-      if (active) setError('Não foi possível carregar os usuários. Tente novamente.')
-    }).finally(() => { if (active) setLoading(false) })
+    currentAccount().then((value) => {
+      if (active) setAccount(value)
+    }).catch(() => { if (active) setError('Não foi possível verificar sua conta. Recarregue a página.') })
+      .finally(() => { if (active) setLoading(false) })
+    if (new URLSearchParams(window.location.search).has('auth_error')) {
+      setError('Não foi possível concluir a autorização Google. Tente novamente.')
+      window.history.replaceState({}, '', window.location.pathname)
+    }
     return () => { active = false }
-  }, [reload])
+  }, [])
 
-  function selectUser(id: string) {
-    setUserId(id)
-    try { localStorage.setItem(USER_STORAGE_KEY, id) } catch { /* Memory only. */ }
+  useEffect(() => {
+    if (!account) return
+    let active = true
+    calendarConnection().then((value) => { if (active) setConnection(value) })
+      .catch(() => { if (active) setError('Não foi possível consultar a conexão do Calendar.') })
+    return () => { active = false }
+  }, [account])
+
+  async function run(action: () => Promise<void>) {
+    if (busy) return
+    setBusy(true); setError('')
+    try { await action() } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível concluir a operação.')
+    } finally { setBusy(false) }
   }
 
-  async function handleCreateUser() {
-    if (creating) return
-    setCreating(true)
-    setError('')
-    try {
-      const user = await createUser()
-      setUsers((previous) => [...previous, user])
-      selectUser(user.id)
-    } catch {
-      setError('Não foi possível criar o usuário. Tente novamente.')
-    } finally { setCreating(false) }
+  async function refreshProposals() { setProposals(await eventProposals()) }
+
+  async function confirmEvent(id: string) {
+    const result = await confirmProposal(id)
+    if (result.requires_confirmation) {
+      setNotice('Os conflitos mudaram. Revise a nova lista antes de confirmar novamente.')
+    } else if (result.event) {
+      setNotice(`Compromisso registrado localmente (ID ${result.event.id}). ` +
+        (result.google.state === 'succeeded' ? 'Também criado no Google Calendar.' :
+          result.google.state === 'not_connected' ? 'Google Calendar não conectado.' :
+            'Google não confirmado. O registro local permanece; verifique antes de repetir.'))
+    }
+    await refreshProposals()
   }
 
-  return <main className="console-page">
-    <div className="console-shell">
-    <section className="user-picker" aria-label="Usuários de demonstração">
-      <label className="header__label" htmlFor="active-user">Usuário</label>
-      <select id="active-user" value={userId} disabled={loading || creating}
-        onChange={(event) => selectUser(event.target.value)}>
-        {!users.length && <option value="">{loading ? 'Carregando…' : 'Crie um usuário'}</option>}
-        {users.map((user, index) => <option key={user.id} value={user.id}>
-          Usuário {index + 1} · {user.id.slice(0, 8)}
-        </option>)}
-      </select>
-      <button className="header__reset user-picker__create" type="button" onClick={handleCreateUser} disabled={loading || creating}>
-        <span aria-hidden="true">+</span>
-        {creating ? 'Criando…' : 'Criar usuário'}
-      </button>
-      {userId && view === 'chat' && (
-        <button className="header__reset" type="button" onClick={() => setView('profile')}>
-          Perfil
+  return <main className="console-page"><div className="console-shell">
+    <section className="user-picker" aria-label="Sua conta">
+      {loading ? <p role="status">Verificando sua conta…</p> : account ? <>
+        <span>{account.email}</span>
+        <button className="header__reset" disabled={busy} onClick={() => void run(async () => {
+          await logout(); setAccount(null); setConnection(null); setProposals([])
+        })}>Sair</button>
+        <button className="header__reset" onClick={() => setView(view === 'chat' ? 'profile' : 'chat')}>
+          {view === 'chat' ? 'Perfil' : 'Conversa'}
         </button>
-      )}
-      {error && <><p className="console__error user-picker__error" role="alert">{error}</p>
-        <button className="header__reset" type="button" onClick={() => setReload((value) => value + 1)}>Recarregar usuários</button></>}
+        <span>{connection?.connected ? `Calendar: ${connection.email}` : 'Calendar não conectado'}</span>
+        <button className="header__reset" disabled={busy} onClick={() => void run(async () => {
+          if (connection?.connected && !connection.reconnect_required) {
+            await disconnectCalendar(); setConnection(await calendarConnection())
+          } else await connectCalendar()
+        })}>{connection?.connected && !connection.reconnect_required ? 'Desconectar Calendar' : 'Conectar Calendar'}</button>
+        <button className="header__reset" disabled={busy} onClick={() => void run(refreshProposals)}>Revisar conflitos</button>
+      </> : <a className="header__reset" href="/api/auth/google/start">Entrar com Google</a>}
     </section>
-    {userId && view === 'profile' ? (
-      <Profile key={userId} userId={userId} onBack={() => setView('chat')} />
-    ) : userId ? <Chat key={userId} userId={userId} /> : (
-      <section className="user-welcome" aria-label="Boas-vindas">
-        <h1 className="header__title">assistente<span className="header__cursor">_</span></h1>
-        <p className="empty__eyebrow">{loading ? '// conectando' : '// vamos começar'}</p>
-        <p className="empty__text">{loading ? 'Carregando seus usuários…' : 'Crie um usuário para começar sua conversa.'}</p>
-      </section>
-    )}
-    </div>
-  </main>
+    {error && <p role="alert" className="console__error">{error}</p>}
+    {notice && <p role="status">{notice}</p>}
+    {account && proposals.map((item) => <section className="session-summary" key={item.operation_id}>
+      <h2>Confirmar conflito: {item.proposal.title}</h2>
+      <p>{new Date(item.proposal.start_time).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} até {new Date(item.proposal.end_time).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>
+      <ul>{item.conflicts.map((conflict) => <li key={conflict.id}>
+        {conflict.title} · {new Date(conflict.start_time).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} até {new Date(conflict.end_time).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+      </li>)}</ul>
+      <p>Confirmar criará o compromisso mesmo com estes conflitos locais.</p>
+      <button className="header__reset" disabled={busy} onClick={() => void run(() => confirmEvent(item.operation_id))}>Confirmar conflito</button>
+    </section>)}
+    {account ? view === 'profile' ? <Profile key={account.id} userId={account.id} onBack={() => setView('chat')} /> :
+      <Chat key={account.id} userId={account.id} /> : <section className="user-welcome">
+        <h1 className="header__title">assistente_</h1>
+        <p>Entre com Google para acessar sua agenda e suas finanças.</p>
+      </section>}
+  </div></main>
 }
 
 export default App

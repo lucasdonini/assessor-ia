@@ -1,4 +1,4 @@
-import { listUsers } from './api/user'
+import { currentAccount, calendarConnection, logout, eventProposals, confirmProposal } from './api/auth'
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -12,7 +12,7 @@ const SESSION_ID = '123e4567-e89b-12d3-a456-426614174000'
 const NEXT_SESSION_ID = '123e4567-e89b-12d3-a456-426614174001'
 const USER_ID = '123e4567-e89b-12d3-a456-426614174099'
 const SESSION_STORAGE_KEY = `assessor-ia.session-id:${USER_ID}`
-vi.mock('./api/user', () => ({ listUsers: vi.fn(), createUser: vi.fn() }))
+vi.mock('./api/auth', () => ({ currentAccount: vi.fn(), calendarConnection: vi.fn(), connectCalendar: vi.fn(), disconnectCalendar: vi.fn(), logout: vi.fn(), eventProposals: vi.fn(), confirmProposal: vi.fn() }))
 
 vi.mock('./api/chat', () => ({
   sendChatMessage: vi.fn(),
@@ -37,7 +37,8 @@ async function renderApp(nextSessionId = SESSION_ID) {
   vi.stubGlobal('crypto', {
     randomUUID,
   })
-  vi.mocked(listUsers).mockResolvedValue([{ id: USER_ID, created_at: '2026-09-07' }])
+  vi.mocked(currentAccount).mockResolvedValue({ id: USER_ID, email: 'test@example.com', csrf: 'csrf' })
+  vi.mocked(calendarConnection).mockResolvedValue({ connected: false, email: null, reconnect_required: false })
   await act(async () => { render(<App />) })
   return { randomUUID }
 }
@@ -51,6 +52,47 @@ function deferred<T>() {
 }
 
 describe('App', () => {
+  it('shows login without exposing a UUID selector', async () => {
+    vi.mocked(currentAccount).mockResolvedValue(null)
+    await act(async () => { render(<App />) })
+    expect(screen.getByRole('link', { name: 'Entrar com Google' })).toBeTruthy()
+    expect(screen.queryByRole('combobox')).toBeNull()
+    expect(screen.queryByLabelText('Sua mensagem')).toBeNull()
+  })
+
+  it('discards a pending private response after logout', async () => {
+    const pending = deferred<Awaited<ReturnType<typeof sendChatMessage>>>()
+    vi.mocked(sendChatMessage).mockReturnValue(pending.promise)
+    vi.mocked(logout).mockResolvedValue()
+    await renderApp()
+    fireEvent.change(screen.getByLabelText('Sua mensagem'), { target: { value: 'Segredo A' } })
+    fireEvent.submit(screen.getByRole('form', { name: 'Enviar mensagem ao assistente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Sair' }))
+    await screen.findByRole('link', { name: 'Entrar com Google' })
+    await act(async () => {
+      pending.resolve({ session_id: SESSION_ID, content: 'Resposta privada A', called_agents: [] })
+    })
+    expect(screen.queryByText('Segredo A')).toBeNull()
+    expect(screen.queryByText('Resposta privada A')).toBeNull()
+  })
+
+  it('confirms conflicts only after an explicit interface action', async () => {
+    const proposal = {
+      operation_id: 'operation',
+      proposal: { title: 'Reunião', start_time: '2026-10-27T14:00:00-03:00', end_time: '2026-10-27T15:00:00-03:00' },
+      conflicts: [{ id: 'existing', title: 'Dentista', start_time: '2026-10-27T14:00:00-03:00', end_time: '2026-10-27T15:00:00-03:00' }],
+      requires_confirmation: true, event: null, google: { state: 'pending' as const },
+    }
+    vi.mocked(eventProposals).mockResolvedValueOnce([proposal]).mockResolvedValue([])
+    vi.mocked(confirmProposal).mockResolvedValue({ ...proposal, requires_confirmation: false, event: { id: 'persisted' }, google: { state: 'failed' } })
+    await renderApp()
+    fireEvent.click(screen.getByRole('button', { name: 'Revisar conflitos' }))
+    await screen.findByText('Dentista ·', { exact: false })
+    expect(confirmProposal).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar conflito' }))
+    await screen.findByText('Compromisso registrado localmente', { exact: false })
+    expect(confirmProposal).toHaveBeenCalledWith('operation')
+  })
   it('abre o perfil do usuário selecionado e volta ao chat', async () => {
     const user = userEvent.setup()
     await renderApp()
@@ -404,27 +446,4 @@ describe('App', () => {
     await screen.findByText('Resposta sem armazenamento')
     expect(sendChatMessage).toHaveBeenCalledWith(SESSION_ID, USER_ID, 'Pergunta')
   })
-})
-
-
-it('descarta a resposta pendente ao trocar de usuário', async () => {
-  const other = '123e4567-e89b-12d3-a456-426614174088'
-  const pending = deferred<Awaited<ReturnType<typeof sendChatMessage>>>()
-  vi.stubGlobal('crypto', { randomUUID: vi.fn().mockReturnValue(SESSION_ID) })
-  vi.mocked(listUsers).mockResolvedValue([
-    { id: USER_ID, created_at: '2026-09-07' },
-    { id: other, created_at: '2026-09-07' },
-  ])
-  vi.mocked(sendChatMessage).mockReturnValue(pending.promise)
-  await act(async () => { render(<App />) })
-  fireEvent.change(screen.getByLabelText('Sua mensagem'), { target: { value: 'Segredo A' } })
-  fireEvent.submit(screen.getByRole('form'))
-  fireEvent.change(screen.getByLabelText('Usuário'), { target: { value: other } })
-  await act(async () => {
-    pending.resolve({ session_id: SESSION_ID, content: 'Resposta privada A', called_agents: [] })
-  })
-  expect(screen.queryByText('Segredo A')).toBeNull()
-  expect(screen.queryByText('Resposta privada A')).toBeNull()
-  expect(localStorage.getItem(`assessor-ia.session-id:${other}`)).toBe(SESSION_ID)
-  expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBe(SESSION_ID)
 })

@@ -1,3 +1,5 @@
+import { mutationHeaders } from './auth'
+
 const SESSION_ENDPOINT = '/api/session'
 
 export type SessionFinalizationResponse = {
@@ -7,14 +9,14 @@ export type SessionFinalizationResponse = {
 
 export async function finalizeSession(
   sessionId: string,
-  userId: string,
+  _userId: string,
 ): Promise<SessionFinalizationResponse> {
   let apiResponse: Response
 
   try {
     apiResponse = await fetch(
       `${SESSION_ENDPOINT}/${encodeURIComponent(sessionId)}/finalize`,
-      { method: 'POST', headers: { 'X-User-ID': userId } },
+      { method: 'POST', headers: mutationHeaders() },
     )
   } catch {
     throw new Error('Não foi possível conectar ao assistente.')

@@ -1,3 +1,5 @@
+import { mutationHeaders } from './auth'
+
 const PROFILE_ENDPOINT = '/api/profile'
 
 export type RiskTolerance = 'LOW' | 'MEDIUM' | 'HIGH'
@@ -16,12 +18,12 @@ export type SaveProfileResult = {
 }
 
 export async function saveProfile(
-  userId: string,
+  _userId: string,
   profile: SaveProfileRequest,
 ): Promise<SaveProfileResult> {
   const response = await fetch(PROFILE_ENDPOINT, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-User-ID': userId },
+    headers: mutationHeaders(),
     body: JSON.stringify(profile),
   })
 

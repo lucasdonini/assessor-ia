@@ -108,4 +108,12 @@ def creation_message(result: EventCreation) -> str:
         "pending": "Resultado no Google ainda não confirmado. Não repita o registro.",
         "unknown": "Resultado no Google incerto; verifique antes de repetir.",
     }[result.google.state]
-    return f"Compromisso registrado no Assessor (ID {result.event.id}). {suffix}"
+    if (
+        result.google.state == "failed"
+        and result.google.error_category == "preview_required"
+    ):
+        suffix = (
+            "O registro local permanece. A conexão MCP com o Google depende "
+            "da liberação do aplicativo no programa de acesso antecipado."
+        )
+    return f"Compromisso registrado no Assessor. {suffix}"

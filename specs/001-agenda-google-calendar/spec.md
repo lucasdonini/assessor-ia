@@ -50,7 +50,7 @@ is deferred; the nine existing tools must remain compatible.
 | FR-006 | After a successful local commit, attempt Google creation using the same persisted title, start/end, location and notes, for that user's connection only. Never create remotely if local creation fails. | AC-006 |
 | FR-007 | Use MCP Streamable HTTP, initialize, discover/validate create_event and invoke it. Support REST fallback only for a positively identified disabled/unavailable MCP service rejection before execution; not for general 403, permission denial, timeout, 5xx or ambiguous outcome. | AC-007 |
 | FR-008 | Persist separate local and remote evidence: local ID, operation ID, Google ID/link when known, transport and state. States: not_connected, pending, succeeded, failed, unknown. Never undo a local event because Google failed. | AC-008 |
-| FR-009 | Creation claims require a real local receipt; Google success additionally requires a provider event ID. Preserve the distinction through specialist output, orchestration and final response. Keep history search for context, never as agenda evidence. | AC-009 |
+| FR-009 | Creation claims require a real local receipt; Google success additionally requires a provider event ID. Keep these identifiers internal: chat and confirmation notices must not display local, operation or Google IDs. Preserve the local/remote distinction through specialist output, orchestration and final response. Keep history search for context, never as agenda evidence. | AC-009 |
 | FR-010 | Repeated execution of the same operation must return the existing local result and must not recreate confirmed Google events. An ambiguous remote result requires reconciliation before any further create attempt. | AC-010 |
 | NFR-001 | Preserve existing dependency directions, asynchronous I/O, Dishka composition, strict Python typing, safe public errors and configured Ruff rules. No folder restructuring. | AC-011 |
 | NFR-002 | Encrypt tokens at rest, isolate by owner, refresh per user with serialization and keep secrets out of frontend responses, logs, prompts, history, Git and model-accessible tools. | AC-002, AC-012 |
@@ -93,6 +93,7 @@ is deferred; the nine existing tools must remain compatible.
   local failure, absent consent and remote failure in Portuguese. Fabricated
   receipts are rejected by deterministic validation; orchestration cannot convert
   a proposal into a success. Trace actual tools and verify persisted effects.
+  Neither chat nor conflict confirmation notices expose internal identifiers.
 - **AC-010 Repetition:** repeated tool calls with the same server-issued operation
   reuse the local ID; different intentional requests may create separate events.
   Confirmed remote results are reused. Unknown results require external readback

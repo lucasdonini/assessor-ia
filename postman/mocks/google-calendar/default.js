@@ -42,7 +42,8 @@ http.createServer(async (req, res) => {
   } else if (body.method === 'tools/call' && body.params.name === 'create_event') {
     const event = body.params.arguments;
     if (!event.summary || !event.startTime || !event.endTime) return json(res, 400, {});
-    if (mode === 'tool-error') result = { content: [{ type: 'text', text: 'Rejected' }], isError: true };
+    if (mode === 'preview-required') result = { content: [{ type: 'text', text: 'Access to this tool requires that your Google Cloud project is enrolled in the Google Workspace Developer Preview Program.' }], isError: true };
+    else if (mode === 'tool-error') result = { content: [{ type: 'text', text: 'Rejected' }], isError: true };
     else {
       const saved = { ...event, id: `mcp-${records.length + 1}` };
       records.push(saved); await pm.state.set('google-calendar:events', records);

@@ -273,6 +273,9 @@ def setup_logger() -> None:
     silenced_loggers = [
         "groq",
         "httpx",
+        "httpx2",
+        "httpcore2",
+        "mcp.client",
         "langchain",
         "langgraph",
         "httpcore",

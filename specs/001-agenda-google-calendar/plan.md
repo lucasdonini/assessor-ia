@@ -137,9 +137,10 @@ for expiration independently of TTL cleanup. Token refresh, export and disconnec
 share an owner-level lock for the supported single-worker deployment.
 
 The final agenda write response is generated from server-collected tool receipts
-using trusted status templates. It contains a real local ID and remote state without
-echoing event contents. This protects the checkpoint/final answer from model
-rewriting of partial failures, while normal non-write responses retain the existing
+using trusted status templates. It relies on a real internal local receipt and
+remote state, without exposing IDs or echoing event contents. This protects the
+checkpoint/final answer from model rewriting of partial failures, while normal
+non-write responses retain the existing
 output guardrail. Payload logging is redacted for the agenda tools; OAuth query
 parameters are removed from Uvicorn callback access records.
 

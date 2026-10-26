@@ -390,7 +390,7 @@ function App() {
     if (result.requires_confirmation) {
       setNotice('Os conflitos mudaram. Revise a nova lista antes de confirmar novamente.')
     } else if (result.event) {
-      setNotice(`Compromisso registrado localmente (ID ${result.event.id}). ` +
+      setNotice('Compromisso registrado localmente. ' +
         (result.google.state === 'succeeded' ? 'Também criado no Google Calendar.' :
           result.google.state === 'not_connected' ? 'Google Calendar não conectado.' :
             'Google não confirmado. O registro local permanece; verifique antes de repetir.'))

@@ -91,6 +91,7 @@ describe('App', () => {
     expect(confirmProposal).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar conflito' }))
     await screen.findByText('Compromisso registrado localmente', { exact: false })
+    expect(screen.queryByText('persisted', { exact: false })).toBeNull()
     expect(confirmProposal).toHaveBeenCalledWith('operation')
   })
   it('abre o perfil do usuário selecionado e volta ao chat', async () => {

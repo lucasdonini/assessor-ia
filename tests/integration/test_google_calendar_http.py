@@ -29,6 +29,7 @@ class SyntheticAuth:
         ("disabled", "succeeded", "rest", 1),
         ("denied", "failed", "mcp", 0),
         ("tool-error", "failed", "mcp", 0),
+        ("preview-required", "failed", "mcp", 0),
         ("server-error", "unknown", "mcp", 1),
     ],
 )
@@ -51,6 +52,8 @@ async def test_real_gateway_over_simulated_http(mode, state, transport, count):
         receipt = await gateway.create(uuid4(), event)
     assert receipt.state == state
     assert receipt.transport == transport
+    if mode == "preview-required":
+        assert receipt.error_category == "preview_required"
     async with httpx.AsyncClient() as client:
         records = (await client.get(base + "/records")).json()
     assert len(records) == count

@@ -35,6 +35,9 @@ the tests also verify record counts via /records. Stop the foreground run with C
 ## Observations
 
 <!-- begin:observations -->
+2026-10-26: Follow-up six-case run passed. The google member served all scenarios,
+including preview-required as an HTTP 200 tool error, zero remote records and no
+REST fallback. No member stayed silent. Only fixed diagnostic labels are retained.
 2026-10-26: Final five-case run passed. The google member received MCP and REST
 traffic; no member stayed silent. REST occurred only for SERVICE_DISABLED;
 the commit-then-500 case retained one remote record and returned unknown.

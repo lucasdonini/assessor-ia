@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from typing import Any
 from uuid import UUID
 
@@ -7,8 +8,9 @@ import httpx
 import httpx2
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
+from mcp.types import CallToolResult
 
-from app.domain.model.event import CalendarReceipt, EventDraft
+from app.domain.model.event import CalendarErrorCategory, CalendarReceipt, EventDraft
 from app.infrastructure.config import GoogleConfig
 from app.services.auth_service import AuthenticationError, AuthService
 
@@ -111,8 +113,22 @@ class GoogleCalendarGateway:
                         submitted = True
                         result = await session.call_tool("create_event", payload)
                         if result.is_error:
+                            category = tool_error_category(result)
+                            logging.getLogger(__name__).warning(
+                                "Calendar MCP tool rejected event",
+                                extra={
+                                    "details": {
+                                        "code": "mcp_tool_error",
+                                        "category": category,
+                                        "transport": "mcp",
+                                    }
+                                },
+                            )
                             known_receipt = CalendarReceipt(
-                                state="failed", code="mcp_tool_error", transport="mcp"
+                                state="failed",
+                                code="mcp_tool_error",
+                                transport="mcp",
+                                error_category=category,
                             )
                             return known_receipt
                         data = result.structured_content
@@ -201,3 +217,51 @@ class GoogleCalendarGateway:
             return CalendarReceipt(
                 state="unknown", code="rest_unavailable", transport="rest"
             )
+
+
+def tool_error_category(result: CallToolResult) -> CalendarErrorCategory:
+    """Return only a fixed diagnostic label; never store/log provider text.
+
+    MCP tool failures can carry details as structured data or text even when HTTP
+    succeeds. Classification does not authorize a fallback or another create.
+    """
+    parts = [json.dumps(result.structured_content or {}, ensure_ascii=True)]
+    parts.extend(block.text for block in result.content if block.type == "text")
+    text = " ".join(parts).casefold()
+    rules: tuple[tuple[CalendarErrorCategory, tuple[str, ...]], ...] = (
+        (
+            "preview_required",
+            (
+                "enrolled in the google workspace developer preview program",
+                "requires enrollment in the google workspace developer preview",
+            ),
+        ),
+        (
+            "insufficient_scope",
+            (
+                "access_token_scope_insufficient",
+                "insufficient authentication scopes",
+                "insufficientpermissions",
+                "insufficient_scope",
+            ),
+        ),
+        (
+            "unauthenticated",
+            ("unauthenticated", "invalid credentials", "invalid_token"),
+        ),
+        ("service_disabled", ("service_disabled",)),
+        (
+            "permission_denied",
+            ("permission_denied", "permission denied", "access_denied"),
+        ),
+        (
+            "invalid_arguments",
+            ("invalid_argument", "invalid argument", "invalidparams"),
+        ),
+        ("rate_limited", ("resource_exhausted", "ratelimitexceeded", "rate limit")),
+        ("unavailable", ("unavailable", "internal server error")),
+    )
+    for category, markers in rules:
+        if any(marker in text for marker in markers):
+            return category
+    return "unclassified"

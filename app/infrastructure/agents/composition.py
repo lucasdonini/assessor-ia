@@ -9,6 +9,8 @@ from app.application.ports.logger import (
 )
 from app.application.ports.text_generator import TextGenerator
 from app.infrastructure.llms import fast_llm, llm_gemini, llm_groq
+from app.infrastructure.observability import TurnTelemetry
+from app.infrastructure.tracing import PrivateTracing
 from app.services.chat_history_service import ChatHistoryService
 from app.services.event_service import EventService
 from app.services.transaction_service import TransactionService
@@ -50,6 +52,8 @@ def build_agent_graph(
     clock: Clock,
     event_service: EventService | None = None,
     execution_timeout_seconds: float = 120.0,
+    telemetry: TurnTelemetry | None = None,
+    tracing: PrivateTracing | None = None,
 ) -> AgentGraphImpl:
     specialist_fallback = FallbackOn429Middleware(
         llm_groq,
@@ -206,4 +210,6 @@ def build_agent_graph(
         logger_factory=logger_factory,
         trace_context_factory=trace_context_factory,
         interaction_incrementer=interaction_incrementer,
+        telemetry=telemetry,
+        tracing=tracing,
     )

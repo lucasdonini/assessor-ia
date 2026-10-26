@@ -123,3 +123,20 @@ async def test_middleware_reraises_non_rate_limit_error() -> None:
         await middleware.awrap_model_call(request, handler)
 
     request.override.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_fallback_activation_is_recorded_once_for_actual_middleware():
+    from app.infrastructure.observability import TurnTelemetry
+
+    store = TurnTelemetry(lambda _: MagicMock())
+    middleware = FallbackOn429Middleware(
+        MagicMock(), logger_factory=lambda _: MagicMock()
+    )
+    error = RuntimeError("rate limited")
+    error.status_code = 429
+    handler = AsyncMock(side_effect=[error, MagicMock()])
+    with store.turn("turn", "owner", "session"):
+        await middleware.awrap_model_call(MagicMock(), handler)
+    assert store.snapshot().turns[0].fallbacks == 1
+    assert store.snapshot().turns[0].status == "ok"

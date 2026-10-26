@@ -12,6 +12,7 @@ from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Overwrite
+from langsmith import tracing_context
 
 from app.application.models.agent_execution import AgentExecutionResult
 from app.application.models.user_context import UserContext
@@ -21,12 +22,14 @@ from app.application.ports.logger import (
     TraceContextFactory,
 )
 from app.domain.model.chat_entry import AssistantMessage, HumanMessage
+from app.infrastructure.observability import TurnTelemetry, observe_node, observe_route
+from app.infrastructure.tracing import PrivateTracing
 
 from ._core.contracts.agent_node import AgentNode
 from ._core.specialist import SpecialistRegistration
 from ._core.state import GraphState, GraphStateKeys
 from ._core.user_context import bind_user_context
-from .tools.agenda import agenda_execution, creation_message
+from .tools.agenda import AgendaEvidence, agenda_execution, creation_message
 
 
 class AgentGraphImpl:
@@ -42,6 +45,8 @@ class AgentGraphImpl:
         logger_factory: LoggerFactory,
         trace_context_factory: TraceContextFactory,
         interaction_incrementer: InteractionIncrementer,
+        telemetry: TurnTelemetry | None = None,
+        tracing: PrivateTracing | None = None,
     ) -> None:
         self._input_guardrail = input_guardrail
         self._router = router
@@ -52,6 +57,8 @@ class AgentGraphImpl:
         self._logger = logger_factory(__name__)
         self._trace_context_factory = trace_context_factory
         self._interaction_incrementer = interaction_incrementer
+        self._telemetry = telemetry or TurnTelemetry(logger_factory)
+        self._tracing = tracing
         self._specialists_by_name = {
             specialist.name: specialist for specialist in self._specialists
         }
@@ -106,7 +113,8 @@ class AgentGraphImpl:
         async def invoke(state: GraphState) -> dict[GraphStateKeys, Any]:
             start_time = time.perf_counter()
             try:
-                return await node(state)
+                with observe_node(node.name):
+                    return await node(state)
             finally:
                 elapsed_ms = round((time.perf_counter() - start_time) * 1000)
                 self._logger.debug(
@@ -131,9 +139,11 @@ class AgentGraphImpl:
         def choose_specialist(state: GraphState) -> str:
             text = state["messages"][-1].text.strip()
             if not text.startswith("ROUTE="):
+                observe_route("direct")
                 return END
 
             route = text.split("\n", 1)[0].split("=", 1)[1].strip()
+            observe_route(route if route in self._specialists_by_name else "direct")
             return route if route in self._specialists_by_name else END
 
         def redirect_from_input_guardrail(state: GraphState) -> str:
@@ -181,49 +191,73 @@ class AgentGraphImpl:
                 "pii_map": {},
             }
 
-            try:
-                async with asyncio.timeout(self._execution_timeout_seconds):
-                    final_state_raw = await self._agent_flux.ainvoke(
-                        initial_state,
-                        config={
-                            "configurable": {
-                                "thread_id": f"{context.user_id}:{session_id}"
-                            }
+            with (
+                self._telemetry.turn(trace_id, str(context.user_id), session_id),
+                self._tracing.scope()
+                if self._tracing
+                else tracing_context(enabled=False),
+            ):
+                return await self._execute_turn(
+                    initial_state, trace_id, context, session_id, agenda_evidence
+                )
+
+    async def _execute_turn(
+        self,
+        initial_state: dict[str, object],
+        trace_id: str,
+        context: UserContext,
+        session_id: str,
+        agenda_evidence: AgendaEvidence,
+    ) -> AgentExecutionResult:
+        try:
+            async with asyncio.timeout(self._execution_timeout_seconds):
+                final_state_raw = await self._agent_flux.ainvoke(
+                    initial_state,
+                    config={
+                        "run_id": uuid.UUID(trace_id),
+                        "callbacks": [
+                            self._telemetry.callback,
+                            *(self._tracing.callbacks() if self._tracing else []),
+                        ],
+                        "metadata": {"turn_id": trace_id},
+                        "configurable": {
+                            "thread_id": f"{context.user_id}:{session_id}"
                         },
-                    )
-            except TimeoutError:
-                self._logger.error(
-                    "Agent chain timed out",
-                    details={"timeout_seconds": self._execution_timeout_seconds},
+                    },
                 )
-                raise
-            final_state = cast(GraphState, final_state_raw)
-
-            self._logger.info(
-                "Agent chain completed",
-                details={"chain": " → ".join(final_state["called_agents"])},
+        except TimeoutError:
+            self._logger.error(
+                "Agent chain timed out",
+                details={"timeout_seconds": self._execution_timeout_seconds},
             )
+            raise
+        final_state = cast(GraphState, final_state_raw)
 
-            last = final_state["messages"][-1]
-            if not isinstance(last, LangGraphAIMessage):
-                raise ValueError(
-                    "Expected last message to be AIMessage, "
-                    f"received {type(last).__name__!r}"
-                )
-            if not isinstance(last.content, str):
-                raise ValueError(
-                    "Expected last message content to be str, "
-                    f"received {type(last.content).__name__!r}"
-                )
-            return AgentExecutionResult(
-                message=AssistantMessage(
-                    content=(
-                        "\n\n".join(
-                            creation_message(item) for item in agenda_evidence.writes
-                        )
-                        if agenda_evidence.writes
-                        else last.content
-                    )
-                ),
-                called_agents=tuple(final_state["called_agents"]),
+        self._logger.info(
+            "Agent chain completed",
+            details={"chain": " → ".join(final_state["called_agents"])},
+        )
+
+        last = final_state["messages"][-1]
+        if not isinstance(last, LangGraphAIMessage):
+            raise ValueError(
+                "Expected last message to be AIMessage, "
+                f"received {type(last).__name__!r}"
             )
+        if not isinstance(last.content, str):
+            raise ValueError(
+                "Expected last message content to be str, "
+                f"received {type(last.content).__name__!r}"
+            )
+        return AgentExecutionResult(
+            message=AssistantMessage(
+                content=(
+                    "\n\n".join(
+                        creation_message(item) for item in agenda_evidence.writes
+                    )
+                    if agenda_evidence.writes
+                    else last.content
+                )
+            ),
+            called_agents=tuple(final_state["called_agents"]),
+        )

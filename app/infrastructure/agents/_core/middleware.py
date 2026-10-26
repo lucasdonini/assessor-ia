@@ -8,6 +8,7 @@ from langchain.agents.middleware import (
 from langchain.chat_models import BaseChatModel
 
 from app.application.ports.logger import LoggerFactory
+from app.infrastructure.observability import observe_fallback
 
 
 def _iter_exception_chain(exc: BaseException) -> Iterator[BaseException]:
@@ -56,5 +57,6 @@ class FallbackOn429Middleware(AgentMiddleware):
                 },
             )
             fallback_request = request.override(model=self._fallback_llm)
+            observe_fallback()
 
             return await handler(fallback_request)

@@ -14,6 +14,7 @@ from app.infrastructure.agents._core.contracts.agent_node import AgentNode
 from app.infrastructure.agents._core.specialist import SpecialistRegistration
 from app.infrastructure.agents._core.state import GraphState, GraphStateKeys
 from app.infrastructure.agents.graph import AgentGraphImpl
+from app.infrastructure.observability import observe_block
 from tests.user_identity import TEST_USER_ID
 
 
@@ -27,6 +28,7 @@ class _InputGuardrail(AgentNode):
             GraphStateKeys.ROUTE: END if blocked else "router",
         }
         if blocked:
+            observe_block("prompt_injection")
             result[GraphStateKeys.MESSAGES] = [AIMessage(content="Bloqueado")]
         return result
 
@@ -94,6 +96,7 @@ async def test_each_turn_resets_agents_but_preserves_messages(
     )
 
     assert first.message == AssistantMessage(content="output_guardrail")
+    assert graph._telemetry.snapshot().turns[0].route == "financial"
     assert first.called_agents == (
         "input_guardrail",
         "router",
@@ -136,6 +139,7 @@ async def test_blocked_turn_only_reports_input_guardrail_and_next_turn_recovers(
 
     assert blocked.message.content == "Bloqueado"
     assert blocked.called_agents == ("input_guardrail",)
+    assert graph._telemetry.snapshot().turns[-1].status == "blocked"
 
     following = await graph.execute_agent_flux(
         HumanMessage(content="agenda"), "session", context=UserContext(TEST_USER_ID)
@@ -215,3 +219,172 @@ async def test_tool_context_isolated_across_nested_tasks_and_restored():
         other,
     ]
     assert get_user_context() == original
+
+
+@pytest.mark.asyncio
+async def test_nested_runnable_models_inherit_turn_and_node(graph, monkeypatch):
+    from langchain_core.language_models.fake_chat_models import (
+        FakeMessagesListChatModel,
+    )
+    from langchain_core.runnables import RunnableLambda
+
+    from app.infrastructure.text_generator import LLMTextGenerator
+
+    model = FakeMessagesListChatModel(
+        responses=[
+            AIMessage(
+                content="synthetic",
+                usage_metadata={
+                    "input_tokens": 7,
+                    "output_tokens": 3,
+                    "total_tokens": 10,
+                },
+            )
+        ]
+    )
+    generator = LLMTextGenerator(model)
+
+    async def nested(state):
+        await generator.generate("PRIVATE_SENTINEL")
+        return await model.ainvoke("PRIVATE_SENTINEL")
+
+    nested_runnable = RunnableLambda(nested)
+    original = _InputGuardrail.__call__
+
+    async def guard(self, state):
+        await nested_runnable.ainvoke(state)
+        return await original(self, state)
+
+    monkeypatch.setattr(_InputGuardrail, "__call__", guard)
+    await graph.execute_agent_flux(
+        HumanMessage(content="financial"), "nested", context=UserContext(TEST_USER_ID)
+    )
+    turn = graph._telemetry.snapshot().turns[0]
+    assert len(turn.calls) == 2
+    assert all(call.node == "input_guardrail" for call in turn.calls)
+    assert sum(call.input_tokens for call in turn.calls) == 14
+    assert "PRIVATE_SENTINEL" not in turn.model_dump_json()
+    await generator.generate("outside turn")
+    assert len(graph._telemetry.snapshot().turns[0].calls) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [TimeoutError, ValueError])
+async def test_failed_graph_closes_turn_with_original_exception(graph, failure):
+    from unittest.mock import AsyncMock
+
+    graph._agent_flux = AsyncMock()
+    graph._agent_flux.ainvoke.side_effect = failure("synthetic failure")
+    with pytest.raises(failure, match="synthetic failure"):
+        await graph.execute_agent_flux(
+            HumanMessage(content="financial"),
+            "failure",
+            context=UserContext(TEST_USER_ID),
+        )
+    snapshot = graph._telemetry.snapshot()
+    assert snapshot.in_progress == 0
+    assert len(snapshot.turns) == 1
+    assert snapshot.turns[0].status == "error"
+
+
+@pytest.mark.asyncio
+async def test_graph_task_cancellation_closes_active_turn(graph):
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    started = asyncio.Event()
+
+    async def wait(*args, **kwargs):
+        started.set()
+        await asyncio.Event().wait()
+
+    graph._agent_flux = AsyncMock()
+    graph._agent_flux.ainvoke.side_effect = wait
+    task = asyncio.create_task(
+        graph.execute_agent_flux(
+            HumanMessage(content="financial"),
+            "cancel",
+            context=UserContext(TEST_USER_ID),
+        )
+    )
+    await started.wait()
+    assert graph._telemetry.snapshot().in_progress == 1
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert graph._telemetry.snapshot().in_progress == 0
+    assert graph._telemetry.snapshot().turns[0].status == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_metadata_traces_reach_outbound_boundary_without_content(
+    graph, monkeypatch
+):
+    import asyncio
+    import json
+
+    from langchain_core.language_models.fake_chat_models import (
+        FakeMessagesListChatModel,
+    )
+    from langsmith import Client
+    from langsmith.schemas import LangSmithInfo
+
+    from app.infrastructure.tracing import PrivateTracing
+
+    sent = []
+
+    def capture(self, run, **kwargs):
+        sent.append(run)
+
+    monkeypatch.setattr(Client, "_create_run", capture)
+    monkeypatch.setattr(Client, "_update_run", capture)
+    monkeypatch.setattr(
+        "app.infrastructure.tracing.Client",
+        lambda **kwargs: Client(
+            **kwargs, info=LangSmithInfo(), api_url="https://synthetic.invalid"
+        ),
+    )
+    graph._tracing = PrivateTracing(
+        enabled=True,
+        api_key="synthetic-key",
+        project="synthetic",
+        logger_factory=lambda _: MagicMock(),
+    )
+    model = FakeMessagesListChatModel(
+        responses=[
+            AIMessage(
+                content="PRIVATE_SENTINEL",
+                usage_metadata={
+                    "input_tokens": 7,
+                    "output_tokens": 3,
+                    "total_tokens": 10,
+                },
+            )
+        ]
+    )
+    original = _InputGuardrail.__call__
+
+    async def guard(self, state):
+        await model.ainvoke("PRIVATE_SENTINEL")
+        return await original(self, state)
+
+    monkeypatch.setattr(_InputGuardrail, "__call__", guard)
+    await graph.execute_agent_flux(
+        HumanMessage(content="financial"),
+        "private-trace",
+        context=UserContext(TEST_USER_ID),
+    )
+    await asyncio.to_thread(graph._tracing.close)
+    assert sent
+    assert "PRIVATE_SENTINEL" not in json.dumps(sent, default=str)
+    turn = graph._telemetry.snapshot().turns[0]
+    assert any(str(run.get("id")) == turn.turn_id for run in sent)
+    assert any(run.get("parent_run_id") is not None for run in sent)
+    assert any(
+        run.get("extra", {})
+        .get("metadata", {})
+        .get("usage_metadata", {})
+        .get("input_tokens")
+        == 7
+        for run in sent
+    )

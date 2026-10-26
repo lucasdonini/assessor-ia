@@ -15,8 +15,19 @@ from app.infrastructure.logger import (
 )
 from app.infrastructure.session_coordinator import SessionCoordinator
 from app.services.chat_session_service import ChatSessionService
+from app.services.monitor_service import MonitorAccess, MonitorService
 from app.services.user_profile_service import UserProfileService
 from app.services.user_service import UserService
+
+
+@inject
+def get_monitor_access(access: FromDishka[MonitorAccess]) -> MonitorAccess:
+    return access
+
+
+@inject
+def get_monitor_service(service: FromDishka[MonitorService]) -> MonitorService:
+    return service
 
 
 @inject

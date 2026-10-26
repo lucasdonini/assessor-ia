@@ -5,11 +5,15 @@ from dishka import Provider, Scope, provide
 from app.application.repositories.chat_session_repository import (
     ChatSessionRepository,
 )
+from app.application.repositories.telemetry_repository import TelemetryRepository
 from app.application.repositories.user_profile_repository import UserProfileRepository
 from app.infrastructure.config import MongoConfig
 from app.infrastructure.mongodb.client import MongoManager
 from app.infrastructure.mongodb.repositories.chat_session_repository import (
     BeanieChatSessionRepository,
+)
+from app.infrastructure.mongodb.repositories.telemetry_repository import (
+    MongoTelemetryRepository,
 )
 from app.infrastructure.mongodb.repositories.user_profile_repository import (
     BeanieUserProfileRepository,
@@ -18,6 +22,10 @@ from app.infrastructure.mongodb.repositories.user_profile_repository import (
 
 class MongoProvider(Provider):
     scope = Scope.APP
+
+    @provide
+    def telemetry_repository(self, manager: MongoManager) -> TelemetryRepository:
+        return MongoTelemetryRepository(manager.database())
 
     @provide
     async def mongo_manager(self, config: MongoConfig) -> AsyncIterable[MongoManager]:

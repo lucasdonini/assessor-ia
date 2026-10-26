@@ -25,6 +25,18 @@ afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.resetA
 async function open() { await act(async () => { render(<Monitor onBack={vi.fn()} />) }) }
 
 describe('Monitor', () => {
+  it('explains persistent retention and shows persistence degradation', async () => {
+    vi.mocked(fetchMonitor).mockResolvedValue({ ...empty,
+      retention: 'mongo_window',
+      persistence: { enabled: true, history_loaded: false, pending_writes: 1, failed_writes: 2, degraded: true },
+    })
+    await open()
+    expect(screen.getByText(/histórico é preservado no MongoDB/)).toBeTruthy()
+    expect(screen.getByRole('alert').textContent).toContain('Persistência de telemetria degradada')
+    expect(screen.getByRole('alert').textContent).toContain('Não foi possível restaurar')
+    expect(screen.getByText('Gravações de telemetria pendentes: 1.')).toBeTruthy()
+  })
+
   it('shows no data, refreshes every four seconds and cleans up timers', async () => {
     await open()
     expect(screen.getByText('Sem turnos para avaliar o SLO.')).toBeTruthy()

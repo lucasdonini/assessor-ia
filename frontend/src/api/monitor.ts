@@ -8,7 +8,8 @@ export type Usage = {
 export type MonitorSnapshot = {
   generated_at: string; process_started_at: string; uptime_seconds: number
   window_limit: number; window_turns: number; scope: 'operator_global'
-  retention: 'process_window'; price_catalog: string
+  retention: 'process_window' | 'mongo_window'; price_catalog: string
+  persistence?: { enabled: boolean; history_loaded: boolean; pending_writes: number; failed_writes: number; degraded: boolean }
   service: {
     completed_turns: number; in_progress: number; blocked_turns: number
     error_turns: number; cancelled_turns: number

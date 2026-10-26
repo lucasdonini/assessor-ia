@@ -31,6 +31,7 @@ class TurnObservation(Observation):
     user_id: str
     session_id: str
     started_at: datetime
+    completed_at: datetime | None = None
     elapsed_ms: float
     route: str
     status: TurnStatus
@@ -40,11 +41,20 @@ class TurnObservation(Observation):
     fallbacks: int = 0
 
 
+class PersistenceSummary(Observation):
+    enabled: bool = False
+    history_loaded: bool = False
+    pending_writes: int = 0
+    failed_writes: int = 0
+    degraded: bool = False
+
+
 class TelemetrySnapshot(Observation):
     process_started_at: datetime
     uptime_seconds: float
     in_progress: int
     turns: tuple[TurnObservation, ...]
+    persistence: PersistenceSummary = PersistenceSummary()
 
 
 class Usage(Observation):
@@ -118,7 +128,8 @@ class MonitorSnapshot(Observation):
     window_limit: int = 50
     window_turns: int
     scope: Literal["operator_global"] = "operator_global"
-    retention: Literal["process_window"] = "process_window"
+    retention: Literal["process_window", "mongo_window"] = "process_window"
+    persistence: PersistenceSummary = PersistenceSummary()
     price_catalog: str = "2026-10-26-standard-usd"
     service: ServiceSummary
     slo: SLO

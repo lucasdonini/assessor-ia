@@ -192,14 +192,16 @@ class AgentGraphImpl:
             }
 
             with (
-                self._telemetry.turn(trace_id, str(context.user_id), session_id),
                 self._tracing.scope()
                 if self._tracing
                 else tracing_context(enabled=False),
             ):
-                return await self._execute_turn(
-                    initial_state, trace_id, context, session_id, agenda_evidence
-                )
+                async with self._telemetry.persisted_turn(
+                    trace_id, str(context.user_id), session_id
+                ):
+                    return await self._execute_turn(
+                        initial_state, trace_id, context, session_id, agenda_evidence
+                    )
 
     async def _execute_turn(
         self,

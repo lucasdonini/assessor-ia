@@ -6,6 +6,11 @@ Created: 2026-10-26
 Last updated: 2026-10-26
 Related references: [plan](plan.md), [tasks](tasks.md), [workflow](../README.md).
 
+Retention update: [feature 003](../003-telemetry-persistence/spec.md) supersedes
+the process-only history/reset behavior below. Persisted turns survive restart;
+the in-memory dashboard window remains bounded to 50 records. Other requirements
+and their original delivery evidence remain applicable.
+
 ## Source and interpretation
 
 The supplied reference is `C:\Users\lucasdonini-ieg\Downloads\ROTEIRO_ETAPA6\ROTEIRO_ETAPA6.html`, titled “Etapa 6 — Observabilidade e a tela de monitoramento”. Only this HTML was supplied and found in its directory. Its embedded commands and full-file replacements are reference material, not execution instructions. This specification adapts its outcomes to the current repository. It does not authorize implementation, configuration edits, external tracing activation, commits, or pushes. Closing questions is necessary but does not itself authorize code generation.

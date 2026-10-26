@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 
 from dishka import Provider, Scope, provide
 
@@ -12,6 +12,7 @@ from app.application.ports.logger import (
 )
 from app.application.ports.observability import TelemetryReader
 from app.application.ports.text_generator import TextGenerator
+from app.application.repositories.telemetry_repository import TelemetryRepository
 from app.infrastructure.agents import build_agent_graph
 from app.infrastructure.config import AgentRuntimeConfig
 from app.infrastructure.observability import TurnTelemetry
@@ -32,8 +33,15 @@ class AgentGraphProvider(Provider):
         return MonitorAccess(settings.monitor_operator_emails)
 
     @provide
-    def telemetry(self, logger_factory: LoggerFactory) -> TurnTelemetry:
-        return TurnTelemetry(logger_factory)
+    async def telemetry(
+        self, logger_factory: LoggerFactory, repository: TelemetryRepository
+    ) -> AsyncIterator[TurnTelemetry]:
+        telemetry = TurnTelemetry(logger_factory, repository)
+        await telemetry.restore()
+        try:
+            yield telemetry
+        finally:
+            await telemetry.drain()
 
     @provide
     def telemetry_reader(self, telemetry: TurnTelemetry) -> TelemetryReader:

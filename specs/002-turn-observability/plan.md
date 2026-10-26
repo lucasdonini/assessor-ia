@@ -2,7 +2,7 @@
 
 Specification: [spec.md](spec.md)
 Last updated: 2026-10-26
-Status: Ready; implementation is not authorized.
+Status: Implemented; authorized by the maintainer on 2026-10-26.
 
 ## Verified context
 
@@ -10,7 +10,7 @@ Inspected graph, state, execution result, composition, model definitions, fallba
 
 ## Approach and affected layers
 
-All paths below are proposed, not created implementation files. Add files inside existing layer directories without restructuring them.
+The implementation adds the following files inside existing layer directories without restructuring them.
 
 | Requirements | Existing or proposed path | Responsibility |
 | --- | --- | --- |
@@ -46,12 +46,12 @@ Store safe fixed categories for timeout, cancellation, classifier unavailable, c
 
 ## Verification strategy
 
-Deterministic tests cover lifecycle, rank boundaries, exact decimal costs, actual provider metadata shapes, async interleaving, callback propagation, nested loops, eviction, unknown data, privacy and auth. Extend existing graph/fallback tests to preserve business semantics. Use fake run/usage fixtures for aggregation; no paid provider calls are needed for those checks. Frontend tests cover all fetching states, timers, visibility/cleanup and series labels. Verify schema with HTTP contract tests and existing `/docs` generation. Relevant Ruff, MyPy, Pytest, frontend lint/type/tests/build checks run only during authorized implementation. A separate synthetic live LangSmith smoke check establishes actual remote root/child correlation; unit tests alone cannot establish that.
+Deterministic tests cover lifecycle, rank boundaries, exact decimal costs, actual provider metadata shapes, async interleaving, callback propagation, nested loops, eviction, unknown data, privacy and auth. Extend existing graph/fallback tests to preserve business semantics. Use fake run/usage fixtures for aggregation; no paid provider calls are needed for those checks. Frontend tests cover all fetching states, timers, visibility/cleanup and series labels. Verify schema with HTTP contract tests and existing `/docs` generation. Relevant Ruff, MyPy, Pytest, frontend lint/type/tests/build checks run only during authorized implementation. The installed SDK was exercised with captured outbound operations for root/child correlation, usage and privacy. Actual cloud inspection remains an operator activation check; local tests do not establish remote account permissions.
 
 ## Delivery and recovery
 
-All specification questions are resolved in spec.md. Await explicit code-generation authorization. Implement recording and contract tests, then aggregation/API, then React and optional private tracing. Preserve chat response and existing behavior at each step. Removing/turning off exporter leaves local monitoring functional; process restart clears telemetry only. Future typed settings and environment-example changes cover the requested email allowlist and optional metadata-only tracing; no configuration is edited in this delivery. No commit or push is authorized.
+All specification questions are resolved in spec.md. The maintainer authorized implementation, semantic commits and a draft PR. Backend recording/API, React UI and documentation are separate commits. Existing chat response and business behavior remain compatible. Turning off the exporter leaves local monitoring functional; restart clears telemetry only. The authorized settings/example changes document the email allowlist and optional private tracing. The actual private environment and remote tracing configuration remain untouched.
 
 ## Delivery risks
 
-No specification questions remain open. Installed SDK support was inspected statically; privacy suppression and nested callback propagation still require the acceptance tests in AC-009 during authorized implementation. Qwen pricing remains deliberately unknown and visible as incomplete cost, without blocking local monitoring. Trace content must never be exported before the payload-policy tests pass. No live activation or cloud account changes are authorized.
+No specification questions remain open. Installed SDK support was inspected statically; privacy suppression and nested callback propagation still require the acceptance tests in AC-009 during authorized implementation. Qwen pricing remains deliberately unknown and visible as incomplete cost, without blocking local monitoring. Trace content must never be exported before the payload-policy tests pass. No live activation or cloud account changes were performed.

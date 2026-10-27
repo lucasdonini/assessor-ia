@@ -45,9 +45,16 @@ def _tool_result(result: dict[GraphStateKeys, Any], call_id: str) -> ToolMessage
 
 def _structured_response() -> AIMessage:
     return AIMessage(
-        content=FinancialOutput(
-            intencao="consultar", resposta="Consulta concluída."
-        ).model_dump_json()
+        content="",
+        tool_calls=[
+            {
+                "name": "FinancialOutput",
+                "id": "structured_read",
+                "args": FinancialOutput(
+                    intencao="consultar", resposta="Consulta concluída."
+                ).model_dump(),
+            }
+        ],
     )
 
 
@@ -136,10 +143,22 @@ async def test_direct_clarification_without_tool_call(
         resposta="Preciso saber qual período consultar.",
         esclarecer="Qual período deseja consultar?",
     )
-    mock_gemini_ainvoke.return_value = AIMessage(content=expected.model_dump_json())
+    mock_gemini_ainvoke.return_value = AIMessage(
+        content="",
+        tool_calls=[
+            {
+                "name": "FinancialOutput",
+                "id": "structured_clarification",
+                "args": expected.model_dump(),
+            }
+        ],
+    )
 
     result = await _run_node(financial_agent_node)
 
     assert result["messages"][-1].text == expected.model_dump_json()
-    assert not any(isinstance(message, ToolMessage) for message in result["messages"])
+    assert not any(
+        isinstance(message, ToolMessage) and message.name != "FinancialOutput"
+        for message in result["messages"]
+    )
     mock_gemini_ainvoke.assert_awaited_once()

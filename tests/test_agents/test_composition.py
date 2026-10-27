@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from langchain.agents.structured_output import ToolStrategy
 
 from app.application.models.user_context import UserContext
 from app.application.ports.faq_search import FaqSearch
@@ -15,12 +16,14 @@ from app.infrastructure.agents._core.contracts.agent_node import AgentNode
 from app.infrastructure.agents._core.factories.langchain_agent_factory import (
     LangChainAgentFactory,
 )
+from app.infrastructure.agents._core.schemas.router_output import router_output_schema
 from app.infrastructure.agents._core.schemas.specialist_output import (
     AgendaOutput,
     FinancialOutput,
 )
 from app.infrastructure.agents._core.state import GraphState, GraphStateKeys
 from app.infrastructure.clock import FixedClock
+from app.infrastructure.llms import fast_llm
 from app.services.chat_history_service import ChatHistoryService
 from app.services.transaction_service import TransactionService
 from app.services.user_profile_service import UserProfileService
@@ -32,6 +35,20 @@ class _StubNode(AgentNode):
 
     async def __call__(self, state: GraphState) -> dict[GraphStateKeys, Any]:
         return {}
+
+
+def test_groq_structured_router_keeps_history_tools_without_native_json_mode():
+    schema = router_output_schema(("financial",))
+    with patch(
+        "app.infrastructure.agents._core.factories.langchain_agent_factory.create_agent"
+    ) as create:
+        LangChainAgentFactory(llm=fast_llm)(
+            system_prompt="Synthetic router",
+            tools=[MagicMock()],
+            response_format=schema,
+        )
+    assert isinstance(create.call_args.kwargs["response_format"], ToolStrategy)
+    assert create.call_args.kwargs["response_format"].schema is schema
 
 
 def _fixed_clock() -> FixedClock:

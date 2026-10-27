@@ -52,3 +52,18 @@ def brl_statement(statements: tuple[str, ...], amount: float) -> str | None:
                 continue
         return None
     return None
+
+
+def known_brl_amount(statements: tuple[str, ...]) -> float | None:
+    for text in reversed(statements[-6:]):
+        for match in _AMOUNT.finditer(text):
+            value = float(
+                Decimal(
+                    (match.group(1) or match.group(2))
+                    .replace(".", "")
+                    .replace(",", ".")
+                )
+            )
+            if brl_statement(statements, value) is not None:
+                return value
+    return None

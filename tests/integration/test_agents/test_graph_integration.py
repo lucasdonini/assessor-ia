@@ -28,7 +28,16 @@ def _mock_financial_flow(
 ) -> None:
     groq.side_effect = [
         AIMessage(content="CATEGORIA: APROVADO\nJUSTIFICATIVA: teste"),
-        AIMessage(content="ROUTE=financial\nPERGUNTA_ORIGINAL=Consulte meu saldo."),
+        AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "RoutingDecision",
+                    "args": {"route": "financial", "response": ""},
+                    "id": "call_route",
+                }
+            ],
+        ),
         AIMessage(content=final_text),
         AIMessage(content=f"STATUS: APROVADO\nRESPOSTA:\n{final_text}"),
     ]
@@ -38,9 +47,16 @@ def _mock_financial_flow(
             tool_calls=[{"name": tool_name, "args": args, "id": "call_balance"}],
         ),
         AIMessage(
-            content=FinancialOutput(
-                intencao="consultar", resposta=final_text
-            ).model_dump_json()
+            content="",
+            tool_calls=[
+                {
+                    "name": "FinancialOutput",
+                    "id": "structured_balance",
+                    "args": FinancialOutput(
+                        intencao="consultar", resposta=final_text
+                    ).model_dump(),
+                }
+            ],
         ),
     ]
 

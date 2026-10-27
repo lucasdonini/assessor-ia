@@ -182,6 +182,15 @@ class AgentGraphImpl:
 
     def _add_conditional_edges(self) -> None:
         def choose_specialist(state: GraphState) -> str:
+            decision = state.get("route", "")
+            if decision in self._specialists_by_name:
+                observe_route(decision)
+                return decision
+            if decision == "direct":
+                observe_route("direct")
+                return self._evidence_judge.name if self._evidence_judge else END
+            # Compatibility for injected AgentNode implementations. Production
+            # RouterAgentNode supplies an explicitly validated route above.
             text = state["messages"][-1].text.strip()
             if not text.startswith("ROUTE="):
                 observe_route("direct")

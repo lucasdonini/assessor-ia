@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, create_autospec
+from unittest.mock import AsyncMock, MagicMock, create_autospec
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -39,6 +39,62 @@ def router(mock_logger_factory: MagicMock) -> RouterAgentNode:
 
 def test_router_registers_complete_tool_name(router: RouterAgentNode) -> None:
     assert router._allowed_tool_names == frozenset({"search_history"})
+
+
+@pytest.mark.asyncio
+async def test_structured_route_is_not_inferred_from_native_json_text(router):
+    human = HumanMessage(content="Comprei um livro por 42 reais")
+    router._agent = AsyncMock()
+    router._agent.ainvoke.return_value = {
+        "structured_response": {"route": "financial", "response": ""},
+        "messages": [human, AIMessage(content='{"route":"financial","response":""}')],
+    }
+    result = await router(
+        {"messages": [human], "route": "router", "called_agents": [], "pii_map": {}}
+    )
+    assert result["route"] == "financial"
+    assert result["messages"][-1].content == (
+        "ROUTE=financial\nPERGUNTA_ORIGINAL=Comprei um livro por 42 reais"
+    )
+    assert not any('"route"' in msg.text for msg in result["messages"])
+
+
+@pytest.mark.asyncio
+async def test_unstructured_or_unknown_route_cannot_become_a_user_reply(router):
+    router._agent = AsyncMock()
+    state = {
+        "messages": [HumanMessage(content="Relato fictício")],
+        "route": "router",
+        "called_agents": [],
+        "pii_map": {},
+    }
+    for response in [
+        {"messages": [AIMessage(content="Compra registrada!")]},
+        {"structured_response": {"route": "unknown", "response": ""}},
+    ]:
+        router._agent.ainvoke.return_value = response
+        with pytest.raises(ValueError):
+            await router(state)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reply", ["Sim", "120", "ok"])
+async def test_pending_specialist_owns_short_confirmation_without_reclassification(
+    router, reply
+):
+    router._agent = AsyncMock()
+    result = await router(
+        {
+            "messages": [HumanMessage(content=reply)],
+            "route": "router",
+            "pending_route": "financial",
+            "called_agents": [],
+            "pii_map": {},
+        }
+    )
+    assert result["route"] == "financial"
+    assert result["pending_route"] == ""
+    router._agent.ainvoke.assert_not_awaited()
 
 
 class TestIsSpecialistJson:

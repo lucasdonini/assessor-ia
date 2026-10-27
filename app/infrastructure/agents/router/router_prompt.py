@@ -45,8 +45,20 @@ def build_router_prompt(
 {available_agents}
 
 ### PROTOCOLO DE ENCAMINHAMENTO
-ROUTE=[um único nome entre: {routes}]
-PERGUNTA_ORIGINAL=[mensagem completa do usuário, sem edições]
+Devolva a saída estruturada solicitada: route e response.
+- route: um dos nomes {routes}, ou direct para resposta direta permitida.
+- response: vazio ao encaminhar; texto natural somente quando route=direct.
+Os exemplos ROUTE=/PERGUNTA_ORIGINAL abaixo ilustram a decisão semântica.
+O código monta esse protocolo interno; não o escreva em response e não use Markdown.
+
+### RELATOS DE COMPRA E CONFIRMAÇÕES
+- Relatos de gastos, compras ou recebimentos são solicitações financeiras mesmo
+  sem a palavra "registre". Encaminhe ao especialista financeiro disponível.
+- Não confirme registro, não pergunte se deve registrar e não acolha esses relatos
+  como small talk. O especialista confere os dados e pede o que estiver faltando.
+- Valor/moeda ausentes não são motivo para route=direct: o financeiro esclarece.
+- Uma confirmação como "Sim" ou um valor respondendo ao esclarecimento financeiro
+  continua no domínio financeiro. Nunca trate essa continuação como saudação.
 
 ### FLUXO OBRIGATÓRIO
 1. Descubra a intenção do usuário.

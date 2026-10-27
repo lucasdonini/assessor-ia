@@ -1,9 +1,16 @@
 import copy
 import json
+import re
 from collections.abc import Sequence
 from typing import Any, ClassVar, cast
 
-from langchain_core.messages import AIMessage, AnyMessage, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    AnyMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from langgraph.graph.state import CompiledStateGraph
 
 from app.application.ports.clock import Clock
@@ -12,6 +19,7 @@ from app.application.ports.logger import Logger, LoggerFactory
 from .._core.contracts.agent_factory import AgentFactory
 from .._core.contracts.agent_node import AgentNode
 from .._core.prompting.temporal_context import build_temporal_context
+from .._core.schemas.router_output import RouterOutput, router_output_schema
 from .._core.specialist import SpecialistRegistration
 from .._core.state import GraphState, GraphStateKeys
 from ..tools.search_history import SearchHistoryTool
@@ -39,11 +47,15 @@ class RouterAgentNode(AgentNode):
         self._logger = logger_factory(__name__)
         self._clock = clock
         self._allowed_tool_names = frozenset((search_history_tool.name,))
+        self._routes = frozenset(specialist.name for specialist in specialists)
         self._agent = agent_factory(
             tools=(search_history_tool,),
             system_prompt=build_router_prompt(
                 specialists=specialists,
                 search_history_tool_name=search_history_tool.name,
+            ),
+            response_format=router_output_schema(
+                tuple(specialist.name for specialist in specialists)
             ),
         )
 
@@ -105,6 +117,29 @@ class RouterAgentNode(AgentNode):
         return filtered
 
     async def __call__(self, state: GraphState) -> dict[GraphStateKeys, Any]:
+        human = next(
+            message
+            for message in reversed(state["messages"])
+            if isinstance(message, HumanMessage)
+        )
+        pending = state.get("pending_route", "")
+        if pending in self._routes and re.fullmatch(
+            r"(?i)\s*(?:sim|ok|confirmo|pode registrar|\d+(?:[.,]\d+)?)\s*[.!]?\s*",
+            human.text,
+        ):
+            self._logger.info(
+                "Routing pending clarification", details={"route": pending}
+            )
+            return {
+                GraphStateKeys.ROUTE: pending,
+                GraphStateKeys.PENDING_ROUTE: "",
+                GraphStateKeys.CALLED_AGENTS: [self.name],
+                GraphStateKeys.MESSAGES: [
+                    AIMessage(
+                        content=f"ROUTE={pending}\nPERGUNTA_ORIGINAL={human.text}"
+                    )
+                ],
+            }
         input_length = len(state["messages"][-1].content)
         self._logger.info(
             "Agent called",
@@ -118,15 +153,34 @@ class RouterAgentNode(AgentNode):
             ],
         }
         response = await self._agent.ainvoke(filtered_state)  # type: ignore[arg-type]
-        output = response["messages"][-1].content if response.get("messages") else ""
+        decision = RouterOutput.model_validate(response.get("structured_response"))
+        if decision.route not in self._routes and decision.route != "direct":
+            raise ValueError("Router returned an unregistered specialist")
+        output = (
+            decision.response
+            if decision.route == "direct"
+            else f"ROUTE={decision.route}\nPERGUNTA_ORIGINAL={human.text}"
+        )
+        messages = list(response.get("messages") or [])
+        if (
+            messages
+            and isinstance(messages[-1], AIMessage)
+            and not messages[-1].tool_calls
+        ):
+            messages.pop()  # Native structured output is internal routing data.
+        messages = self._filter_messages_for_router(messages)
+        messages.append(AIMessage(content=output))
         self._logger.info(
             "Agent response",
             details={
                 "from": self.name,
                 "output_length": len(output),
+                "route": decision.route,
             },
         )
         return {
-            GraphStateKeys.MESSAGES: response.get("messages") or [],
+            GraphStateKeys.MESSAGES: messages,
             GraphStateKeys.CALLED_AGENTS: [self.name],
+            GraphStateKeys.ROUTE: decision.route,
+            GraphStateKeys.PENDING_ROUTE: "",
         }

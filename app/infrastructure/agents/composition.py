@@ -18,7 +18,7 @@ from app.services.transaction_service import TransactionService
 from app.services.user_profile_service import UserProfileService
 
 from ._core.factories.langchain_agent_factory import LangChainAgentFactory
-from ._core.middleware import FallbackOn429Middleware
+from ._core.middleware import FallbackOn429Middleware, FinancialToolChoiceMiddleware
 from ._core.specialist import SpecialistRegistration
 from .agenda import AgendaAgentNode
 from .evidence_judge import EvidenceJudgeNode
@@ -65,7 +65,7 @@ def build_agent_graph(
 
     specialist_factory = LangChainAgentFactory(
         llm=llm_gemini,
-        middlewares=(specialist_fallback,),
+        middlewares=(FinancialToolChoiceMiddleware(), specialist_fallback),
     )
 
     support_agent_factory = LangChainAgentFactory(llm=fast_llm)

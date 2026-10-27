@@ -38,12 +38,14 @@ class ServicesProvider(Provider):
         self,
         settings: PydanticSettings,
         logger_factory: LoggerFactory,
+        clock: Clock,
     ) -> AsyncIterator[EvidenceValidator]:
         async with httpx.AsyncClient(follow_redirects=False) as client:
             yield JevEvidenceValidator(
                 client,
                 settings.typesafe_api_key.get_secret_value(),
                 logger_factory,
+                clock=clock,
             )
 
     @provide

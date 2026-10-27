@@ -1,6 +1,6 @@
 # [004] Evidence validation and truthful financial writes
 
-Status: In progress
+Status: Implemented
 Owner: Project maintainer
 Created: 2026-10-27
 Last updated: 2026-10-27
@@ -106,8 +106,10 @@ Bind an execution context to the authenticated/configured user, session and uniq
 turn before any agent runs. Retain original human input transiently; do not infer
 its identity from a model-generated message. For a pending clarification, allow up
 to six recent human messages from the same session, explicitly tagged as prior
-statements. If the action cannot be resolved within that bound, ask the user to
-restate it. Assistant prose is not authoritative operation evidence.
+statements. A narrow confirmation (such as Sim) or the same bare numeric amount
+can continue the nearest preceding substantive request; unrelated intervening
+requests or changed/foreign amounts stop resolution. If the action cannot be
+resolved within that bound, ask the user to restate it. Assistant prose is not authoritative operation evidence.
 
 Normalize tool evidence into tool name, invocation identifier, arguments, result
 status and result data. Deduplicate by invocation identifier, not textual equality.
@@ -139,7 +141,8 @@ in a generated description or source_text cannot override original user input.
 
 Cancel/restore and updates without amount changes do not require the user to
 repeat an amount/currency; they still require explicit action and valid target.
-source_text for new rows comes from trusted user evidence, not model fabrication.
+source_text for new rows comes from the trusted human statement establishing
+explicit BRL, not model fabrication or a standalone confirmation such as Sim.
 For updates, retain the original source_text and validate new amount/currency
 against the new request. Successful new amount changes are BRL by policy.
 Amount changes on explicitly foreign legacy records are refused: without a
@@ -178,7 +181,10 @@ POST https://api.typesafe.ai/v1/systemone with server-side Bearer authentication
 Send model, state and questions in one request; veredito is a choice among
 apoiada, parcial and sem_apoio; apoiada is a noul question. State holds the
 candidate command/reply, relevant human statements, typed evidence and rubric.
-Distinguish command validation from final reply validation in the rubric.
+Distinguish command validation from final reply validation in the question
+instructions themselves. Rubric version 2 treats commands as proposed operations,
+not claims of completed writes, and supplies injected local reference time.
+Structured command candidates are serialized as objects, not escaped JSON strings.
 
 Use pinned model jev-1.14.0, threshold 0.70 and a versioned rubric. The adapter
 validates answer types/labels and finite probabilities in [0,1] strictly; additional
@@ -222,10 +228,13 @@ implementation in commits and updating .env.example. The private .env is unchang
 | Privacy | Minimize and consistently anonymize judgment input; JEV necessarily receives the remaining facts required for validation. |
 | Delivery authorization | The subsequent user request authorized implementation, configuration-example updates, commits and a draft English PR. No deployment or private environment edit was requested. |
 
-No unresolved product or design questions remain. Code and deterministic
-verification are delivered; real-provider evaluation remains pending because an
-own key is not configured. Keep In progress until the semantic/latency gate passes;
-the draft PR must not claim the model has been evaluated.
+No unresolved product or design questions remain. Deterministic checks and the
+real-provider gate passed with rubric 2: 0/12 false approvals, 10/12 supported
+cases approved, warm p95 511.6 ms. Two supported replies were conservatively
+refused (opinion attribution and timezone conversion). See
+[evaluation results](evaluation-results.json). The small fixed dataset establishes
+regression evidence, not a general accuracy or safety guarantee. The production
+command path also passed both synthetic confirmation cases against the real JEV.
 
 ## Completion criteria
 

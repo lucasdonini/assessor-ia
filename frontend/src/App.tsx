@@ -33,6 +33,7 @@ const AGENT_LABELS: Readonly<Record<string, string>> = {
   faq: 'Perguntas frequentes',
   orquestrator: 'Orquestrador',
   output_guardrail: 'Validação de saída',
+  evidence_judge: 'Validação de evidências',
 }
 
 type Phase = 'idle' | 'sending' | 'finalizing'

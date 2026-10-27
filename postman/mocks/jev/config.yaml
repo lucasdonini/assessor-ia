@@ -1,0 +1,10 @@
+version: 1
+name: jev
+slug: jev
+protocol: http
+interceptRequests: true
+port: 4501
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

@@ -26,6 +26,15 @@ class ModelObservation(Observation):
     output_tokens: int | None = None
 
 
+class JudgmentObservation(Observation):
+    stage: str
+    reason: str
+    choice: str | None = None
+    noul: float | None = None
+    model: str | None = None
+    elapsed_ms: float
+
+
 class TurnObservation(Observation):
     turn_id: str
     user_id: str
@@ -39,6 +48,8 @@ class TurnObservation(Observation):
     nodes: tuple[NodeObservation, ...] = ()
     calls: tuple[ModelObservation, ...] = ()
     fallbacks: int = 0
+    judgments: tuple[JudgmentObservation, ...] = ()
+    financial_outcomes: tuple[str, ...] = ()
 
 
 class PersistenceSummary(Observation):

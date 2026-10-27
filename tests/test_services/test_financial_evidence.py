@@ -10,7 +10,7 @@ from app.application.exceptions import (
     FinancialOutcomeUnknownError,
     UnsupportedCurrencyError,
 )
-from app.application.models.currency import explicit_brl
+from app.application.models.currency import brl_statement, explicit_brl
 from app.application.models.evidence import FinancialExecution, Judgment
 from app.application.models.transaction_update import (
     UpdateTransactionParams,
@@ -37,6 +37,52 @@ from app.services.transaction_service import TransactionService
 )
 def test_currency_is_deterministic(text, amount, valid):
     assert explicit_brl(text, amount) is valid
+
+
+@pytest.mark.parametrize("followups", [("Sim",), ("Sim", "120"), ("Sim", "120", "120")])
+@pytest.mark.asyncio
+async def test_reported_zara_confirmation_keeps_original_amount_and_source(
+    setup, followups
+):
+    service, repo, validator, user, transaction = setup
+    original = "Comprei uma camisa na Zara por 120 reais"
+    execution = FinancialExecution(user, (original, *followups))
+    await service.add_transaction(transaction, user_id=user, execution=execution)
+    repo.add_transaction.assert_awaited_once()
+    assert repo.add_transaction.call_args.args[0].source_text == original
+    request = validator.validate.call_args.args[0]
+    assert request.statements == (original, *followups)
+    assert execution.receipts == ["Lançamento registrado em BRL."]
+
+
+@pytest.mark.parametrize(
+    "statements",
+    [
+        ("Comprei por 120 reais", "Quanto é o dólar?", "Sim"),
+        ("Comprei por 120 reais", "Comprei por 120 dólares", "Sim"),
+        ("Comprei por 120 reais", "Comprei por 200 reais", "Sim"),
+        ("Comprei por 120 reais", "200", "Sim"),
+        ("Comprei por 120 reais", "Não registre", "Sim"),
+        ("Comprei por 120 reais", "Comprei outra camisa", "Sim"),
+        ("Sim", "120"),
+        ("Comprei por 120 reais", "Sim", "Sim", "Sim", "Sim", "Sim", "Sim"),
+    ],
+)
+def test_confirmation_never_reuses_unrelated_or_out_of_window_amount(statements):
+    assert brl_statement(statements, 120) is None
+
+
+@pytest.mark.asyncio
+async def test_confirmation_does_not_bypass_judge_refusal(setup):
+    service, repo, validator, user, transaction = setup
+    validator.validate.return_value = Judgment(reason="unsupported")
+    with pytest.raises(EvidenceRejectedError):
+        await service.add_transaction(
+            transaction,
+            user_id=user,
+            execution=FinancialExecution(user, ("Comprei por 120 reais", "Sim")),
+        )
+    repo.add_transaction.assert_not_awaited()
 
 
 @pytest.fixture

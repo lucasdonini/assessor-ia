@@ -386,8 +386,8 @@ e cancelamento contam como falha. As medidas excluem espera de sessão,
 autenticação e persistência HTTP.
 
 O custo usa preços padrão verificados em 26/10/2026, sem desconto de cache.
-Tokens ou preços indisponíveis tornam a estimativa parcial. O Qwen usado como
-fallback fica explicitamente sem preço confirmado. Custo acumulado significa
+Tokens ou preços indisponíveis tornam a estimativa parcial. O fallback financeiro
+usa o mesmo modelo Groq disponível no roteador; o JEV permanece sem preço no catálogo local. Custo acumulado significa
 somente a janela retida, nunca a fatura ou o total histórico. Reiniciar restaura
 os 50 turnos mais recentes e reinicia apenas os contadores de atividade e uptime.
 Use um único worker, conforme a
@@ -475,3 +475,17 @@ defina `RUN_JEV_EVALUATION=1` e execute
 Ela usa exclusivamente as [24 fixtures sintéticas](specs/004-evidence-validation/evaluation-cases.json).
 A aprovação nos testes determinísticos não substitui esse gate de qualidade e
 latência do modelo real.
+
+Para verificar também o encaminhamento e a execução do grafo completo, defina
+`RUN_GRAPH_EVALUATION=1` e execute
+`uv run python -m tests.integration.test_live_financial_graph`. O teste usa compras
+fictícias, modelos reais e repositórios falsos: não grava no seu banco. Ele executa
+fora do pytest para usar a mesma construção LangChain/LangGraph da aplicação.
+O roteador entrega uma decisão estruturada; relatos de compra seguem ao financeiro,
+mesmo quando o especialista ainda precisa esclarecer algum dado.
+
+Esclarecimentos financeiros pendentes mantêm o domínio para respostas curtas,
+como “Sim”. A saída tipada do especialista é preservada antes da orquestração.
+Quando o modelo apenas propõe uma escrita sem tentar ferramenta alguma, existe
+no máximo uma correção de geração; ela mantém a validação do comando e nunca
+repete uma escrita tentada, recusada, incerta ou confirmada.

@@ -4,6 +4,7 @@ from dishka import Provider, Scope, provide
 
 from app.application.ports.agent_graph import AgentGraph
 from app.application.ports.clock import Clock
+from app.application.ports.evidence_validator import EvidenceValidator
 from app.application.ports.faq_search import FaqSearch
 from app.application.ports.logger import (
     InteractionIncrementer,
@@ -80,6 +81,7 @@ class AgentGraphProvider(Provider):
         event_service: EventService,
         telemetry: TurnTelemetry,
         tracing: PrivateTracing,
+        validator: EvidenceValidator,
     ) -> AgentGraph:
         return build_agent_graph(
             transaction_service=transaction_service,
@@ -95,4 +97,5 @@ class AgentGraphProvider(Provider):
             execution_timeout_seconds=config.execution_timeout_seconds,
             telemetry=telemetry,
             tracing=tracing,
+            validator=validator,
         )

@@ -6,6 +6,35 @@ class ApplicationError(Exception):
         super().__init__(message or self.public_message)
 
 
+class UnsupportedCurrencyError(ApplicationError):
+    code = "unsupported_currency"
+    public_message = (
+        "Informe um único valor explícito em reais (BRL). "
+        "Não registro nem converto valores em outras moedas."
+    )
+
+
+class MixedCurrencyBalanceError(UnsupportedCurrencyError):
+    code = "mixed_currency_balance"
+    public_message = (
+        "O saldo inclui registros em outras moedas. "
+        "Não posso apresentar um total em BRL sem conversão."
+    )
+
+
+class EvidenceRejectedError(ApplicationError):
+    code = "evidence_rejected"
+    public_message = "Não tenho evidência para afirmar isso."
+
+
+class FinancialOutcomeUnknownError(ApplicationError):
+    code = "financial_outcome_unknown"
+    public_message = (
+        "Não foi possível confirmar o resultado da operação. "
+        "Verifique os lançamentos antes de repetir."
+    )
+
+
 class SessionHistoryIndexError(ApplicationError):
     code = "session_history_index_error"
     public_message = "Não foi possível acessar a memória de conversas anteriores."

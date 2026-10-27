@@ -4,6 +4,7 @@ from uuid import uuid4
 import pytest
 
 from app.application.exceptions import TransactionNotFoundError
+from app.application.models.evidence import FinancialExecution
 from app.application.models.transaction_query import TransactionQueryParams
 from app.application.models.transaction_update import (
     UpdateTransactionParams,
@@ -29,10 +30,11 @@ async def test_financial_operations_never_cross_owners(db_session, transaction_s
                 Transaction(
                     user_id=owner,
                     amount=amount,
-                    source_text="same lunch",
+                    source_text=f"same lunch {amount} reais",
                     occurred_at=when,
                 ),
                 user_id=owner,
+                execution=FinancialExecution(owner, (f"same lunch {amount} reais",)),
             )
         )
     await transaction_service.add_transaction(
@@ -44,6 +46,7 @@ async def test_financial_operations_never_cross_owners(db_session, transaction_s
             occurred_at=when,
         ),
         user_id=other,
+        execution=FinancialExecution(other, ("salary 1000 reais",)),
     )
     assert (
         await transaction_service.calculate_total_balance(user_id=TEST_USER_ID) == -50
@@ -65,6 +68,7 @@ async def test_financial_operations_never_cross_owners(db_session, transaction_s
                     query=UpdateTransactionQuery(id=records[1].id), **changes
                 ),
                 user_id=TEST_USER_ID,
+                execution=FinancialExecution(TEST_USER_ID, ("Atualize 1 real",)),
             )
     updated = await transaction_service.update_transaction(
         UpdateTransactionParams(
@@ -74,6 +78,7 @@ async def test_financial_operations_never_cross_owners(db_session, transaction_s
             amount=60,
         ),
         user_id=TEST_USER_ID,
+        execution=FinancialExecution(TEST_USER_ID, ("same lunch 60 reais",)),
     )
     assert updated.id == records[0].id
     assert await transaction_service.calculate_total_balance(user_id=other) == 100

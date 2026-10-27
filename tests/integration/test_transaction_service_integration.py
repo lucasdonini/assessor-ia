@@ -7,6 +7,7 @@ from app.application.exceptions import (
     NoTransactionChangesError,
     TransactionNotFoundError,
 )
+from app.application.models.evidence import FinancialExecution
 from app.application.models.transaction_query import (
     TransactionQueryParams,
 )
@@ -105,7 +106,13 @@ class TestAddTransaction:
             source_text="Paguei conta de luz",
             user_id=TEST_USER_ID,
         )
-        result = await transaction_service.add_transaction(t, user_id=TEST_USER_ID)
+        result = await transaction_service.add_transaction(
+            t,
+            user_id=TEST_USER_ID,
+            execution=FinancialExecution(
+                TEST_USER_ID, ("Paguei 300 reais de conta de luz",)
+            ),
+        )
 
         assert result.amount == 300.00
         assert result.category == Category.BILLS
@@ -119,7 +126,11 @@ class TestUpdateTransaction:
             amount=5200.00,
         )
         result = await transaction_service.update_transaction(
-            params, user_id=TEST_USER_ID
+            params,
+            user_id=TEST_USER_ID,
+            execution=FinancialExecution(
+                TEST_USER_ID, (f"Atualize para {params.amount or 0:g} reais",)
+            ),
         )
 
         assert result is not None
@@ -134,14 +145,26 @@ class TestUpdateTransaction:
             amount=100.00,
         )
         with pytest.raises(TransactionNotFoundError):
-            await transaction_service.update_transaction(params, user_id=TEST_USER_ID)
+            await transaction_service.update_transaction(
+                params,
+                user_id=TEST_USER_ID,
+                execution=FinancialExecution(
+                    TEST_USER_ID, (f"Atualize para {params.amount or 0:g} reais",)
+                ),
+            )
 
     async def test_update_without_changes(self, transaction_service, seed_transactions):
         params = UpdateTransactionParams(
             query=UpdateTransactionQuery(id=seed_transactions[0].id),
         )
         with pytest.raises(NoTransactionChangesError):
-            await transaction_service.update_transaction(params, user_id=TEST_USER_ID)
+            await transaction_service.update_transaction(
+                params,
+                user_id=TEST_USER_ID,
+                execution=FinancialExecution(
+                    TEST_USER_ID, (f"Atualize para {params.amount or 0:g} reais",)
+                ),
+            )
 
     async def test_update_no_reference(self, transaction_service):
         with pytest.raises(ValidationError):

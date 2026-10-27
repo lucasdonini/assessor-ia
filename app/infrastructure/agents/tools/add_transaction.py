@@ -2,6 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from app.infrastructure.agents._core.evidence import financial_execution
 from app.infrastructure.agents._core.user_context import get_user_context
 from app.infrastructure.agents.financial.schemas.transaction import (
     TransactionInput,
@@ -33,6 +34,7 @@ class AddTransactionTool(AgentTool[AddTransactionArgsSchema, AddTransactionRespo
         added = await self.service.add_transaction(
             transaction.to_domain(user_id=get_user_context().user_id),
             user_id=get_user_context().user_id,
+            execution=financial_execution(),
         )
 
         return AddTransactionResponse(transaction=TransactionOutput.from_domain(added))

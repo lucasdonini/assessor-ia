@@ -1,6 +1,7 @@
 from langgraph.graph import END
 
 from app.application.ports.clock import Clock
+from app.application.ports.evidence_validator import EvidenceValidator
 from app.application.ports.faq_search import FaqSearch
 from app.application.ports.logger import (
     InteractionIncrementer,
@@ -20,6 +21,7 @@ from ._core.factories.langchain_agent_factory import LangChainAgentFactory
 from ._core.middleware import FallbackOn429Middleware
 from ._core.specialist import SpecialistRegistration
 from .agenda import AgendaAgentNode
+from .evidence_judge import EvidenceJudgeNode
 from .faq import FAQAgentNode
 from .financial import FinancialAgentNode
 from .graph import AgentGraphImpl
@@ -54,6 +56,7 @@ def build_agent_graph(
     execution_timeout_seconds: float = 120.0,
     telemetry: TurnTelemetry | None = None,
     tracing: PrivateTracing | None = None,
+    validator: EvidenceValidator | None = None,
 ) -> AgentGraphImpl:
     specialist_fallback = FallbackOn429Middleware(
         llm_groq,
@@ -212,4 +215,5 @@ def build_agent_graph(
         interaction_incrementer=interaction_incrementer,
         telemetry=telemetry,
         tracing=tracing,
+        evidence_judge=EvidenceJudgeNode(validator) if validator else None,
     )

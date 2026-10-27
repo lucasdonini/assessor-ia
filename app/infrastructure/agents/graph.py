@@ -22,13 +22,20 @@ from app.application.ports.logger import (
     TraceContextFactory,
 )
 from app.domain.model.chat_entry import AssistantMessage, HumanMessage
-from app.infrastructure.observability import TurnTelemetry, observe_node, observe_route
+from app.infrastructure.observability import (
+    TurnTelemetry,
+    observe_financial_outcomes,
+    observe_node,
+    observe_route,
+)
 from app.infrastructure.tracing import PrivateTracing
 
 from ._core.contracts.agent_node import AgentNode
+from ._core.evidence import current_evidence, evidence_execution
 from ._core.specialist import SpecialistRegistration
 from ._core.state import GraphState, GraphStateKeys
 from ._core.user_context import bind_user_context
+from .evidence_judge import receipt
 from .tools.agenda import AgendaEvidence, agenda_execution, creation_message
 
 
@@ -47,12 +54,14 @@ class AgentGraphImpl:
         interaction_incrementer: InteractionIncrementer,
         telemetry: TurnTelemetry | None = None,
         tracing: PrivateTracing | None = None,
+        evidence_judge: AgentNode | None = None,
     ) -> None:
         self._input_guardrail = input_guardrail
         self._router = router
         self._specialists = tuple(specialists)
         self._orquestrator = orquestrator
         self._output_guardrail = output_guardrail
+        self._evidence_judge = evidence_judge
         self._execution_timeout_seconds = execution_timeout_seconds
         self._logger = logger_factory(__name__)
         self._trace_context_factory = trace_context_factory
@@ -79,6 +88,8 @@ class AgentGraphImpl:
             self._output_guardrail,
         ]
         names = [node.name for node in nodes]
+        if self._evidence_judge:
+            names.append(self._evidence_judge.name)
         duplicate_names = {name for name in names if names.count(name) > 1}
         if duplicate_names:
             duplicates = ", ".join(sorted(duplicate_names))
@@ -87,6 +98,10 @@ class AgentGraphImpl:
             raise ValueError("Agent graph requires at least one specialist")
 
     def _add_nodes(self) -> None:
+        if self._evidence_judge:
+            self._graph.add_node(
+                self._evidence_judge.name, self._timed_node(self._evidence_judge)
+            )
         self._graph.add_node(
             self._input_guardrail.name,
             self._timed_node(self._input_guardrail),
@@ -114,7 +129,27 @@ class AgentGraphImpl:
             start_time = time.perf_counter()
             try:
                 with observe_node(node.name):
-                    return await node(state)
+                    if self._evidence_judge and node is not self._evidence_judge:
+                        fixed = receipt()
+                        if fixed is not None:
+                            return {
+                                GraphStateKeys.MESSAGES: [
+                                    LangGraphAIMessage(content=fixed)
+                                ],
+                                GraphStateKeys.CALLED_AGENTS: [node.name],
+                            }
+                    try:
+                        return await node(state)
+                    except Exception:
+                        fixed = receipt() if self._evidence_judge else None
+                        if fixed is None:
+                            raise
+                        return {
+                            GraphStateKeys.MESSAGES: [
+                                LangGraphAIMessage(content=fixed)
+                            ],
+                            GraphStateKeys.CALLED_AGENTS: [node.name],
+                        }
             finally:
                 elapsed_ms = round((time.perf_counter() - start_time) * 1000)
                 self._logger.debug(
@@ -131,20 +166,34 @@ class AgentGraphImpl:
     def _add_edges(self) -> None:
         self._graph.add_edge(START, self._input_guardrail.name)
         for specialist in self._specialists:
-            self._graph.add_edge(specialist.name, specialist.destination)
+            destination = (
+                self._evidence_judge.name
+                if self._evidence_judge and specialist.destination == END
+                else specialist.destination
+            )
+            self._graph.add_edge(specialist.name, destination)
         self._graph.add_edge(self._orquestrator.name, self._output_guardrail.name)
-        self._graph.add_edge(self._output_guardrail.name, END)
+        self._graph.add_edge(
+            self._output_guardrail.name,
+            self._evidence_judge.name if self._evidence_judge else END,
+        )
+        if self._evidence_judge:
+            self._graph.add_edge(self._evidence_judge.name, END)
 
     def _add_conditional_edges(self) -> None:
         def choose_specialist(state: GraphState) -> str:
             text = state["messages"][-1].text.strip()
             if not text.startswith("ROUTE="):
                 observe_route("direct")
-                return END
+                return self._evidence_judge.name if self._evidence_judge else END
 
             route = text.split("\n", 1)[0].split("=", 1)[1].strip()
             observe_route(route if route in self._specialists_by_name else "direct")
-            return route if route in self._specialists_by_name else END
+            return (
+                route
+                if route in self._specialists_by_name
+                else (self._evidence_judge.name if self._evidence_judge else END)
+            )
 
         def redirect_from_input_guardrail(state: GraphState) -> str:
             route = state["route"]
@@ -176,6 +225,7 @@ class AgentGraphImpl:
             self._trace_context_factory(trace_id),
             bind_user_context(context),
             agenda_execution() as agenda_evidence,
+            evidence_execution(context.user_id, (user_input.content,)),
         ):
             message = LangGraphHumanMessage(id=trace_id, content=user_input.content)
             self._logger.info(
@@ -213,6 +263,25 @@ class AgentGraphImpl:
     ) -> AgentExecutionResult:
         try:
             async with asyncio.timeout(self._execution_timeout_seconds):
+                if self._evidence_judge:
+                    snapshot = await self._agent_flux.aget_state(
+                        {
+                            "configurable": {
+                                "thread_id": f"{context.user_id}:{session_id}"
+                            }
+                        }
+                    )
+                    prior = tuple(
+                        item.text
+                        for item in snapshot.values.get("messages", [])
+                        if isinstance(item, LangGraphHumanMessage)
+                    )[-5:]
+                    evidence = current_evidence()
+                    if evidence:
+                        evidence.financial.statements = (
+                            *prior,
+                            evidence.financial.statements[-1],
+                        )
                 final_state_raw = await self._agent_flux.ainvoke(
                     initial_state,
                     config={
@@ -232,8 +301,26 @@ class AgentGraphImpl:
                 "Agent chain timed out",
                 details={"timeout_seconds": self._execution_timeout_seconds},
             )
+            fixed = receipt() if self._evidence_judge else None
+            if fixed and self._evidence_judge:
+                # A confirmed outcome needs no model call, even if generation
+                # exhausted the graph deadline. Execute the terminal node so
+                # called_agents and node timing describe an actual invocation.
+                await self._timed_node(self._evidence_judge).ainvoke(
+                    {"messages": [], "called_agents": [], "route": "", "pii_map": {}}
+                )
+                evidence = current_evidence()
+                if evidence:
+                    observe_financial_outcomes(evidence.financial.outcomes)
+                return AgentExecutionResult(
+                    message=AssistantMessage(content=fixed),
+                    called_agents=("evidence_judge",),
+                )
             raise
         final_state = cast(GraphState, final_state_raw)
+        evidence = current_evidence()
+        if evidence:
+            observe_financial_outcomes(evidence.financial.outcomes)
 
         self._logger.info(
             "Agent chain completed",
@@ -257,7 +344,7 @@ class AgentGraphImpl:
                     "\n\n".join(
                         creation_message(item) for item in agenda_evidence.writes
                     )
-                    if agenda_evidence.writes
+                    if agenda_evidence.writes and not self._evidence_judge
                     else last.content
                 )
             ),

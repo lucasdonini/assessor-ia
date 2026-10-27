@@ -10,6 +10,7 @@ from app.application.models.transaction_update import (
     UpdateTransactionQuery,
 )
 from app.domain.model.transaction import Category, TransactionType
+from app.infrastructure.agents._core.evidence import evidence_execution
 from app.infrastructure.agents._core.schemas.tool_response import (
     ToolFailure,
     ToolSuccess,
@@ -143,7 +144,8 @@ class TestAddTransactionTool:
             description="Presente",
             source_text="Comprei presente",
         )
-        result = await add_tool._arun(transaction=t)
+        with evidence_execution(TEST_USER_ID, ("Comprei presente por 99 reais",)):
+            result = await add_tool._arun(transaction=t)
         assert isinstance(result, ToolSuccess)
         assert result.data.transaction is not None
 
@@ -152,7 +154,8 @@ class TestAddTransactionTool:
             amount=50.00,
             source_text="teste add tool",
         )
-        add_result = await add_tool._arun(transaction=t)
+        with evidence_execution(TEST_USER_ID, ("teste add tool 50 reais",)):
+            add_result = await add_tool._arun(transaction=t)
         assert isinstance(add_result, ToolSuccess)
 
         params = TransactionQueryParams(source_text="teste add tool", limit=50)
@@ -170,7 +173,8 @@ class TestUpdateTransactionTool:
             amount=6000.00,
             description="Atualizado via tool",
         )
-        result = await update_tool._arun(params=params)
+        with evidence_execution(TEST_USER_ID, ("Atualize para 6000 reais",)):
+            result = await update_tool._arun(params=params)
         assert isinstance(result, ToolSuccess)
         assert result.data.updated is not None
 
@@ -181,7 +185,8 @@ class TestUpdateTransactionTool:
                 date_local=date(2026, 6, 1),
             ),
         )
-        result = await update_tool._arun(params=params)
+        with evidence_execution(TEST_USER_ID, ("Atualize para 6000 reais",)):
+            result = await update_tool._arun(params=params)
         assert isinstance(result, ToolFailure)
         assert result.code == "no_transaction_changes"
 
@@ -190,7 +195,8 @@ class TestDeleteTransactionTool:
     async def test_delete_by_id(self, delete_tool, seed_transactions):
         target = seed_transactions[0]
         query = UpdateTransactionQuery(id=target.id)
-        result = await delete_tool._arun(query=query)
+        with evidence_execution(TEST_USER_ID, ("Cancele esse lançamento",)):
+            result = await delete_tool._arun(query=query)
         assert isinstance(result, ToolSuccess)
         assert result.data.deleted is True
 
@@ -198,7 +204,8 @@ class TestDeleteTransactionTool:
         from uuid import uuid4
 
         query = UpdateTransactionQuery(id=uuid4())
-        result = await delete_tool._arun(query=query)
+        with evidence_execution(TEST_USER_ID, ("Cancele esse lançamento",)):
+            result = await delete_tool._arun(query=query)
         assert isinstance(result, ToolFailure)
         assert result.code == "transaction_not_found"
 
@@ -207,7 +214,8 @@ class TestRestoreTransactionTool:
     async def test_restore_by_id(self, restore_tool, seed_transactions):
         target = seed_transactions[0]
         query = UpdateTransactionQuery(id=target.id)
-        result = await restore_tool._arun(query=query)
+        with evidence_execution(TEST_USER_ID, ("Restaure esse lançamento",)):
+            result = await restore_tool._arun(query=query)
         assert isinstance(result, ToolSuccess)
         assert result.data.restored is True
 
@@ -215,7 +223,8 @@ class TestRestoreTransactionTool:
         from uuid import uuid4
 
         query = UpdateTransactionQuery(id=uuid4())
-        result = await restore_tool._arun(query=query)
+        with evidence_execution(TEST_USER_ID, ("Restaure esse lançamento",)):
+            result = await restore_tool._arun(query=query)
         assert isinstance(result, ToolFailure)
         assert result.code == "transaction_not_found"
 
@@ -224,10 +233,12 @@ class TestRestoreTransactionTool:
     ):
         target = seed_transactions[0]
         delete_query = UpdateTransactionQuery(id=target.id)
-        delete_result = await delete_tool._arun(query=delete_query)
+        with evidence_execution(TEST_USER_ID, ("Cancele esse lançamento",)):
+            delete_result = await delete_tool._arun(query=delete_query)
         assert isinstance(delete_result, ToolSuccess)
         assert delete_result.data.deleted is True
 
-        restore_result = await restore_tool._arun(query=delete_query)
+        with evidence_execution(TEST_USER_ID, ("Restaure esse lançamento",)):
+            restore_result = await restore_tool._arun(query=delete_query)
         assert isinstance(restore_result, ToolSuccess)
         assert restore_result.data.restored is True

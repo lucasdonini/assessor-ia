@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
 from app.application.exceptions import ApplicationError
 from app.application.ports.logger import Logger, LoggerFactory
+from app.infrastructure.agents._core.evidence import record_tool
 
 from ..schemas.tool_response import ToolFailure, ToolResponse, ToolSuccess
 
@@ -15,7 +16,7 @@ class AgentTool[ArgsSchema: BaseModel, Response: BaseModel](BaseTool):
 
     logger_factory: Annotated[LoggerFactory, Field(exclude=True)]
     log_details: Annotated[dict[str, Any], Field(exclude=True)] = {}
-    redact_payloads: Annotated[bool, Field(exclude=True)] = False
+    redact_payloads: Annotated[bool, Field(exclude=True)] = True
 
     _logger: Logger = PrivateAttr()
 
@@ -50,7 +51,9 @@ class AgentTool[ArgsSchema: BaseModel, Response: BaseModel](BaseTool):
                 if self.redact_payloads
                 else {"result": result},
             )
-            return ToolSuccess(data=result)
+            response = ToolSuccess(data=result)
+            record_tool(self.name, kwargs, response)
+            return response
 
         except ApplicationError as error:
             self._logger.warning(
@@ -60,12 +63,16 @@ class AgentTool[ArgsSchema: BaseModel, Response: BaseModel](BaseTool):
                     "error_code": error.code,
                 },
             )
-            return ToolFailure.application_error(error)
+            failure = ToolFailure.application_error(error)
+            record_tool(self.name, kwargs, failure)
+            return failure
 
         except Exception as e:
             if self.redact_payloads:
                 self._logger.warning("Tool failed", details={"tool": self.name})
-                return ToolFailure.unexpected_error()
+                failure = ToolFailure.unexpected_error()
+                record_tool(self.name, kwargs, failure)
+                return failure
             self._logger.exception(
                 "Async tool failed",
                 exception=e,

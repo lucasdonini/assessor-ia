@@ -1,16 +1,33 @@
+from dataclasses import replace
 from datetime import date
 
 import pytest
 
 from app.application.exceptions import (
+    FinancialOutcomeUnknownError,
     NoTransactionChangesError,
     TransactionNotFoundError,
 )
+from app.application.models.evidence import FinancialExecution, Judgment
 from app.application.models.transaction_query import (
     TransactionQueryParams,
 )
 from app.domain.model.transaction import Category
 from tests.user_identity import TEST_USER_ID
+
+
+@pytest.fixture(autouse=True)
+def allow_judge(service, mock_repository, sample_transaction):
+    mock_repository.resolve_transaction.return_value = sample_transaction
+    from unittest.mock import AsyncMock
+
+    service._validator = AsyncMock()
+    service._validator.validate.return_value = Judgment(approved=True, reason="test")
+
+
+def execution(text):
+    return FinancialExecution(TEST_USER_ID, (text,))
+
 
 pytestmark = pytest.mark.asyncio
 
@@ -102,11 +119,16 @@ class TestAddTransaction:
     ):
         mock_repository.add_transaction.return_value = sample_transaction_with_id
 
-        result = await service.add_transaction(sample_transaction, user_id=TEST_USER_ID)
+        result = await service.add_transaction(
+            sample_transaction,
+            user_id=TEST_USER_ID,
+            execution=execution("Gastei 150,50 reais com almoço"),
+        )
 
         assert result == sample_transaction_with_id
         mock_repository.add_transaction.assert_called_once_with(
-            sample_transaction, user_id=TEST_USER_ID
+            replace(sample_transaction, source_text="Gastei 150,50 reais com almoço"),
+            user_id=TEST_USER_ID,
         )
 
     async def test_add_returns_from_repository(
@@ -114,7 +136,11 @@ class TestAddTransaction:
     ):
         mock_repository.add_transaction.return_value = sample_transaction
 
-        result = await service.add_transaction(sample_transaction, user_id=TEST_USER_ID)
+        result = await service.add_transaction(
+            sample_transaction,
+            user_id=TEST_USER_ID,
+            execution=execution("Gastei 150,50 reais com almoço"),
+        )
 
         assert result == sample_transaction
 
@@ -122,7 +148,11 @@ class TestAddTransaction:
         mock_repository.add_transaction.side_effect = Exception("fail")
 
         with pytest.raises(Exception):
-            await service.add_transaction(sample_transaction, user_id=TEST_USER_ID)
+            await service.add_transaction(
+                sample_transaction,
+                user_id=TEST_USER_ID,
+                execution=execution("Gastei 150,50 reais com almoço"),
+            )
 
 
 class TestUpdateTransaction:
@@ -136,7 +166,9 @@ class TestUpdateTransaction:
         mock_repository.update_transaction.return_value = sample_transaction_with_id
 
         result = await service.update_transaction(
-            sample_update_params_by_id, user_id=TEST_USER_ID
+            sample_update_params_by_id,
+            user_id=TEST_USER_ID,
+            execution=execution("Atualize para 200 reais"),
         )
 
         assert result is not None
@@ -160,7 +192,9 @@ class TestUpdateTransaction:
 
         with pytest.raises(TransactionNotFoundError):
             await service.update_transaction(
-                sample_update_params_by_id, user_id=TEST_USER_ID
+                sample_update_params_by_id,
+                user_id=TEST_USER_ID,
+                execution=execution("Atualize para 200 reais"),
             )
 
     async def test_update_raises(
@@ -168,7 +202,9 @@ class TestUpdateTransaction:
     ):
         mock_repository.update_transaction.side_effect = ValueError("no reference")
 
-        with pytest.raises(ValueError):
+        with pytest.raises(FinancialOutcomeUnknownError):
             await service.update_transaction(
-                sample_update_params_by_id, user_id=TEST_USER_ID
+                sample_update_params_by_id,
+                user_id=TEST_USER_ID,
+                execution=execution("Atualize para 200 reais"),
             )

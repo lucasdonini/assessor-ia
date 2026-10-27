@@ -1,6 +1,7 @@
+import asyncio
 from contextlib import nullcontext
 from typing import Any, ClassVar
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from langchain_core.messages import AIMessage
@@ -11,11 +12,52 @@ from app.application.models.user_context import UserContext
 from app.application.ports.logger import Logger
 from app.domain.model.chat_entry import AssistantMessage, HumanMessage
 from app.infrastructure.agents._core.contracts.agent_node import AgentNode
+from app.infrastructure.agents._core.evidence import current_evidence
 from app.infrastructure.agents._core.specialist import SpecialistRegistration
 from app.infrastructure.agents._core.state import GraphState, GraphStateKeys
+from app.infrastructure.agents.evidence_judge import EvidenceJudgeNode
 from app.infrastructure.agents.graph import AgentGraphImpl
 from app.infrastructure.observability import observe_block
 from tests.user_identity import TEST_USER_ID
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["exception", "timeout"])
+async def test_confirmed_receipt_survives_later_generation_failure(graph, failure):
+    class ConfirmedWrite(AgentNode):
+        name = "financial"
+
+        async def __call__(self, state):
+            evidence = current_evidence()
+            assert evidence is not None
+            evidence.financial.receipts.append("Lançamento registrado em BRL.")
+            evidence.financial.outcomes.append("confirmed")
+            if failure == "timeout":
+                await asyncio.sleep(3)
+            raise RuntimeError("generation failed after confirmed write")
+
+    validator = AsyncMock()
+    validator.validate.side_effect = RuntimeError("judge unavailable after commit")
+    subject = AgentGraphImpl(
+        input_guardrail=graph._input_guardrail,
+        router=graph._router,
+        specialists=[
+            SpecialistRegistration(ConfirmedWrite(), "financial", "orquestrator")
+        ],
+        orquestrator=graph._orquestrator,
+        output_guardrail=graph._output_guardrail,
+        evidence_judge=EvidenceJudgeNode(validator),
+        execution_timeout_seconds=2,
+        logger_factory=lambda _: MagicMock(spec=Logger),
+        trace_context_factory=lambda _: nullcontext(),
+        interaction_incrementer=lambda: 1,
+    )
+    result = await subject.execute_agent_flux(
+        HumanMessage(content="financial"), "session", context=UserContext(TEST_USER_ID)
+    )
+    assert result.message.content == "Lançamento registrado em BRL."
+    validator.validate.assert_not_awaited()
+    assert subject._telemetry.snapshot().turns[0].status == "ok"
 
 
 class _InputGuardrail(AgentNode):

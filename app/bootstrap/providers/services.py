@@ -1,6 +1,10 @@
+from collections.abc import AsyncIterator
+
+import httpx
 from dishka import Provider, Scope, provide
 
 from app.application.ports.clock import Clock
+from app.application.ports.evidence_validator import EvidenceValidator
 from app.application.ports.logger import LoggerFactory
 from app.application.ports.profile_preferences_index import ProfilePreferencesIndex
 from app.application.ports.session_history_index import SessionHistoryIndex
@@ -13,8 +17,10 @@ from app.application.repositories.user_profile_repository import UserProfileRepo
 from app.application.repositories.user_repository import UserRepository
 from app.infrastructure.clock import SystemClock
 from app.infrastructure.config import AgentRuntimeConfig
+from app.infrastructure.evidence_validator import JevEvidenceValidator
 from app.infrastructure.llms import fast_llm
 from app.infrastructure.session_coordinator import SessionCoordinator
+from app.infrastructure.settings import PydanticSettings
 from app.infrastructure.text_generator import LLMTextGenerator
 from app.services.chat_history_service import ChatHistoryService
 from app.services.chat_session_service import ChatSessionService
@@ -26,6 +32,19 @@ from app.services.user_service import UserService
 
 class ServicesProvider(Provider):
     scope = Scope.APP
+
+    @provide
+    async def evidence_validator(
+        self,
+        settings: PydanticSettings,
+        logger_factory: LoggerFactory,
+    ) -> AsyncIterator[EvidenceValidator]:
+        async with httpx.AsyncClient(follow_redirects=False) as client:
+            yield JevEvidenceValidator(
+                client,
+                settings.typesafe_api_key.get_secret_value(),
+                logger_factory,
+            )
 
     @provide
     def clock(self, config: AgentRuntimeConfig) -> Clock:
@@ -55,10 +74,12 @@ class ServicesProvider(Provider):
         self,
         repository: TransactionRepository,
         logger_factory: LoggerFactory,
+        validator: EvidenceValidator,
     ) -> TransactionService:
         return TransactionService(
             repository=repository,
             logger_factory=logger_factory,
+            validator=validator,
         )
 
     @provide

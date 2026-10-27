@@ -16,6 +16,27 @@ pytestmark = [
 ]
 
 
+@pytest.mark.parametrize("followups", [("Sim",), ("Sim", "120", "120")])
+async def test_confirmed_purchase_persists_original_brl_evidence(
+    transaction_service, followups
+):
+    original = "Comprei uma camisa na Zara por 120 reais"
+    execution = FinancialExecution(TEST_USER_ID, (original, *followups))
+    await transaction_service.add_transaction(
+        Transaction(user_id=TEST_USER_ID, amount=120, source_text="Sim"),
+        user_id=TEST_USER_ID,
+        execution=execution,
+    )
+    records = await transaction_service.search_transactions(
+        TransactionQueryParams(limit=None),
+        user_id=TEST_USER_ID,
+    )
+    assert len(records) == 1
+    assert records[0].amount == 120
+    assert records[0].source_text == original
+    assert execution.receipts == ["Lançamento registrado em BRL."]
+
+
 async def test_foreign_amount_is_not_inserted(transaction_service, db_session):
     before = await transaction_service.search_transactions(
         TransactionQueryParams(limit=None), user_id=TEST_USER_ID

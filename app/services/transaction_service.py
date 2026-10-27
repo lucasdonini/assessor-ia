@@ -14,7 +14,7 @@ from app.application.exceptions import (
     TransactionNotFoundError,
     UnsupportedCurrencyError,
 )
-from app.application.models.currency import FOREIGN, explicit_brl
+from app.application.models.currency import FOREIGN, brl_statement
 from app.application.models.evidence import FinancialExecution, JudgmentInput
 from app.application.models.transaction_query import (
     TransactionQueryParams,
@@ -83,7 +83,9 @@ class TransactionService:
         if transaction.user_id != user_id:
             raise EvidenceRejectedError
         if execution and execution.statements:
-            transaction = replace(transaction, source_text=execution.statements[-1])
+            source = brl_statement(execution.statements, transaction.amount)
+            if source is not None:
+                transaction = replace(transaction, source_text=source)
         return await self._mutate(
             "add",
             asdict(transaction),
@@ -166,8 +168,9 @@ class TransactionService:
             if execution.stopped:
                 raise EvidenceRejectedError
             try:
-                if amount is not None and not explicit_brl(
-                    execution.statements[-1], amount
+                if (
+                    amount is not None
+                    and brl_statement(execution.statements, amount) is None
                 ):
                     raise UnsupportedCurrencyError
                 if self._validator is None:

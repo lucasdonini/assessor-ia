@@ -44,6 +44,7 @@ class PydanticSettings(BaseSettings):
     google_calendar_mcp_url: str = "https://calendarmcp.googleapis.com/mcp/v1"
     gemini_api_key: SecretStr = SecretStr(_DUMMY_API_KEY)
     groq_api_key: SecretStr = SecretStr(_DUMMY_API_KEY)
+    typesafe_api_key: SecretStr = SecretStr("")
 
     postgres_url: SecretStr = SecretStr("postgresql://localhost:5432/acessoriadb")
 

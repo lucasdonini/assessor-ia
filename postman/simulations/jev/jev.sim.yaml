@@ -1,0 +1,6 @@
+simulation: jev
+routing: path
+mocks:
+  - name: jev
+    routeKey: jev
+    path: postman/mocks/jev

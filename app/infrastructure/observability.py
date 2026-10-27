@@ -14,7 +14,9 @@ from uuid import UUID
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.outputs import LLMResult
 
+from app.application.models.evidence import Judgment
 from app.application.models.observability import (
+    JudgmentObservation,
     ModelObservation,
     NodeObservation,
     PersistenceSummary,
@@ -40,6 +42,8 @@ class ActiveTurn:
     calls: list[ModelObservation] = field(default_factory=list)
     fallbacks: int = 0
     completed: TurnObservation | None = None
+    judgments: list[JudgmentObservation] = field(default_factory=list)
+    financial_outcomes: tuple[str, ...] = ()
 
 
 _current: ContextVar[tuple["TurnTelemetry", str] | None] = ContextVar(
@@ -93,6 +97,74 @@ def observe_fallback() -> None:
     current = _current.get()
     if current:
         current[0].fallback(current[1])
+
+
+@best_effort
+def observe_judgment(
+    stage: str,
+    result: "Judgment",
+    elapsed_ms: float,
+    attempted: bool,
+    success: bool,
+    usage: dict[str, object],
+) -> None:
+    current = _current.get()
+    if not current:
+        return
+    store, turn_id = current
+    with store._lock:
+        turn = store._active.get(turn_id)
+        if turn is None:
+            return
+        turn.judgments.append(
+            JudgmentObservation(
+                stage=stage,
+                reason=result.reason,
+                choice=result.choice,
+                noul=result.noul,
+                model=result.model,
+                elapsed_ms=elapsed_ms,
+            )
+        )
+        if attempted:
+            turn.calls.append(
+                ModelObservation(
+                    provider="typesafe",
+                    model=result.model or "jev-1.14.0",
+                    node="evidence_judge"
+                    if stage == "reply"
+                    else "financial_validation",
+                    elapsed_ms=elapsed_ms,
+                    success=success,
+                    input_tokens=_count(usage.get("input_tokens")),
+                    output_tokens=_count(usage.get("output_tokens")),
+                )
+            )
+        if not result.approved:
+            turn.status = "blocked" if result.reason == "unsupported" else "error"
+            turn.failure_category = "evidence_" + result.reason
+
+
+@best_effort
+def observe_financial_outcomes(outcomes: list[str]) -> None:
+    current = _current.get()
+    if not current or not outcomes:
+        return
+    store, turn_id = current
+    with store._lock:
+        turn = store._active.get(turn_id)
+        if turn is None:
+            return
+        turn.financial_outcomes = tuple(outcomes)
+        if "confirmed" in outcomes:
+            turn.status = "ok"
+            turn.failure_category = None
+        elif "financial_outcome_unknown" in outcomes:
+            turn.status = "error"
+            turn.failure_category = "financial_outcome_unknown"
+        elif turn.status == "ok":
+            turn.status = "blocked"
+            turn.failure_category = "financial_validation"
 
 
 def has_active_turn() -> bool:
@@ -277,6 +349,8 @@ class TurnTelemetry:
                     nodes=tuple(turn.nodes),
                     calls=tuple(turn.calls),
                     fallbacks=turn.fallbacks,
+                    judgments=tuple(turn.judgments),
+                    financial_outcomes=turn.financial_outcomes,
                 )
                 self._turns.append(turn.completed)
             except Exception:

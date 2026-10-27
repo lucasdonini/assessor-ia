@@ -446,7 +446,9 @@ texto original. Nos outros casos, o chat informa que não tem evidência.
 
 Novos valores financeiros exigem BRL explícito: por exemplo, “camisa por 120
 reais”. Sem preço/moeda, com dólar/euro ou referência ambígua, o sistema pede
-esclarecimento e não grava. Alterações e cancelamentos resolvem o registro do
+esclarecimento e não grava. Uma confirmação como “Sim” pode continuar o pedido
+anterior que já contém o valor em BRL; a origem preserva a mensagem da compra.
+Outro pedido, valor ou moeda no meio impede reaproveitar essa evidência. Alterações e cancelamentos resolvem o registro do
 próprio usuário antes da validação, e a propriedade é conferida novamente na
 escrita. Operações confirmadas geram recibos determinísticos, sem depender de um
 novo julgamento após o commit. Não há transação distribuída entre banco, histórico

@@ -1,4 +1,6 @@
 import asyncio
+import json
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import httpx
@@ -6,6 +8,7 @@ import pytest
 
 from app.application.models.evidence import JudgmentInput
 from app.application.models.observability import TurnObservation
+from app.infrastructure.clock import FixedClock
 from app.infrastructure.evidence_validator import JevEvidenceValidator
 from app.infrastructure.observability import TurnTelemetry
 
@@ -19,6 +22,43 @@ def response(choice="apoiada", noul=0.9):
         },
         "usage": {"input_tokens": 30, "output_tokens": 2},
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stage", ["command", "reply"])
+async def test_stage_question_and_structured_command_have_explicit_reference_time(
+    stage,
+):
+    async def handler(request):
+        body = json.loads(request.content)
+        instructions = body["questions"]["veredito"]["instructions"]
+        if stage == "command":
+            assert "ANTES de gravar" in instructions
+            assert body["state"]["candidate"]["amount"] == 120
+        else:
+            assert "Avalie a resposta" in instructions
+            assert body["state"]["candidate"] == "Você gastou 120 reais."
+        assert body["state"]["reference_time"] == "2026-10-27T09:00:00-03:00"
+        return httpx.Response(200, json=response())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await JevEvidenceValidator(
+            client,
+            "key",
+            lambda _: MagicMock(),
+            clock=FixedClock(
+                datetime(2026, 10, 27, 12, tzinfo=timezone.utc), "America/Sao_Paulo"
+            ),
+        ).validate(
+            JudgmentInput(
+                stage=stage,
+                statements=("120 reais",),
+                candidate='{"amount":120}'
+                if stage == "command"
+                else "Você gastou 120 reais.",
+            )
+        )
+    assert result.approved
 
 
 @pytest.mark.asyncio

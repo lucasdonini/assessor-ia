@@ -25,7 +25,7 @@ commits and a draft English PR. No deployment is included.
 
 ## Decisions and implementation sequence
 
-1. Establish typed contracts, rubric version 1 and deterministic fixtures first.
+1. Establish typed contracts, a versioned, stage-specific rubric and deterministic fixtures first.
 2. Deliver the adapter and exact decision table with a controlled HTTP transport.
 3. Capture evidence at tool execution, including router history searches and nested
    agent tools. Use unique invocation IDs so repeated identical valid reads are
@@ -200,3 +200,24 @@ unavailable until the validated path is restored. No automatic data compensation
 
 These are explicit operating limitations and delivery prerequisites; no unresolved
 design choice remains.
+
+## Follow-up: confirmation regression and real-provider gate
+
+The reported purchase -> Sim -> 120 sequence exposed a deterministic check that
+used only the latest human statement. brl_statement now resolves the nearest
+explicit BRL source across narrow confirmations/same-number continuations within
+six messages. It stops at unrelated requests, mismatched amounts or currency
+changes. New source_text preserves that original source rather than Sim.
+
+Live rubric 1 rejected all six supported commands: it mixed proposed-operation
+validation with evidence of completed writes. Rubric 2 makes the stage-specific
+question explicit, serializes command objects directly, and uses the injected
+Clock for reference_time. The live evaluation fixes the clock to the dataset's
+date for reproducibility. No threshold, frozen case or acceptance gate was loosened.
+
+The 24-case live gate passed: 0 false approvals, 10 supported approvals, warm p95
+511.6 ms. Two supported replies remain conservative refusals. Both synthetic
+confirmation paths also passed through TransactionService with the real JEV and a
+non-writing fake repository; PostgreSQL tests separately verified persisted origin.
+The original held_out partition had already been run under rubric 1, so these
+results are a fixed regression measurement, not a pristine independent benchmark.

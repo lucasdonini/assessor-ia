@@ -1,0 +1,280 @@
+{
+  "model": "jev-1.14.0",
+  "rubric": "2",
+  "rows": [
+    {
+      "id": "command-true-1",
+      "split": "development",
+      "expected": true,
+      "approved": true,
+      "reason": "approved",
+      "choice": "apoiada",
+      "noul": 0.94,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 323.1
+    },
+    {
+      "id": "command-true-2",
+      "split": "held_out",
+      "expected": true,
+      "approved": true,
+      "reason": "approved",
+      "choice": "apoiada",
+      "noul": 0.97,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 325.9
+    },
+    {
+      "id": "command-true-3",
+      "split": "development",
+      "expected": true,
+      "approved": true,
+      "reason": "approved",
+      "choice": "apoiada",
+      "noul": 0.88,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 210.9
+    },
+    {
+      "id": "command-true-4",
+      "split": "held_out",
+      "expected": true,
+      "approved": true,
+      "reason": "approved",
+      "choice": "apoiada",
+      "noul": 0.81,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 280.4
+    },
+    {
+      "id": "command-true-5",
+      "split": "development",
+      "expected": true,
+      "approved": true,
+      "reason": "approved",
+      "choice": "apoiada",
+      "noul": 0.9,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 363.8
+    },
+    {
+      "id": "command-true-6",
+      "split": "held_out",
+      "expected": true,
+      "approved": true,
+      "reason": "approved",
+      "choice": "apoiada",
+      "noul": 0.86,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 207.2
+    },
+    {
+      "id": "command-false-1",
+      "split": "development",
+      "expected": false,
+      "approved": false,
+      "reason": "unsupported",
+      "choice": "parcial",
+      "noul": 0.04,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 188.2
+    },
+    {
+      "id": "command-false-2",
+      "split": "held_out",
+      "expected": false,
+      "approved": false,
+      "reason": "unsupported",
+      "choice": "parcial",
+      "noul": 0.02,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 678.6
+    },
+    {
+      "id": "command-false-3",
+      "split": "development",
+      "expected": false,
+      "approved": false,
+      "reason": "unsupported",
+      "choice": "sem_apoio",
+      "noul": 0.01,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 511.6
+    },
+    {
+      "id": "command-false-4",
+      "split": "held_out",
+      "expected": false,
+      "approved": false,
+      "reason": "unsupported",
+      "choice": "parcial",
+      "noul": 0.02,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 408.4
+    },
+    {
+      "id": "command-false-5",
+      "split": "development",
+      "expected": false,
+      "approved": false,
+      "reason": "unsupported",
+      "choice": "sem_apoio",
+      "noul": 0.01,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 308.4
+    },
+    {
+      "id": "command-false-6",
+      "split": "held_out",
+      "expected": false,
+      "approved": false,
+      "reason": "unsupported",
+      "choice": "sem_apoio",
+      "noul": 0.02,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 321.6
+    },
+    {
+      "id": "reply-true-1",
+      "split": "development",
+      "expected": true,
+      "approved": true,
+      "reason": "approved",
+      "choice": "apoiada",
+      "noul": 0.96,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 247.3
+    },
+    {
+      "id": "reply-true-2",
+      "split": "held_out",
+      "expected": true,
+      "approved": true,
+      "reason": "approved",
+      "choice": "apoiada",
+      "noul": 0.91,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 271.8
+    },
+    {
+      "id": "reply-true-3",
+      "split": "development",
+      "expected": true,
+      "approved": true,
+      "reason": "approved",
+      "choice": "apoiada",
+      "noul": 0.98,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 246.5
+    },
+    {
+      "id": "reply-true-4",
+      "split": "held_out",
+      "expected": true,
+      "approved": false,
+      "reason": "unsupported",
+      "choice": "apoiada",
+      "noul": 0.68,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 208.4
+    },
+    {
+      "id": "reply-true-5",
+      "split": "development",
+      "expected": true,
+      "approved": true,
+      "reason": "approved",
+      "choice": "apoiada",
+      "noul": 0.93,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 265.5
+    },
+    {
+      "id": "reply-true-6",
+      "split": "held_out",
+      "expected": true,
+      "approved": false,
+      "reason": "unsupported",
+      "choice": "sem_apoio",
+      "noul": 0.23,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 266.1
+    },
+    {
+      "id": "reply-false-1",
+      "split": "development",
+      "expected": false,
+      "approved": false,
+      "reason": "unsupported",
+      "choice": "parcial",
+      "noul": 0.03,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 197.7
+    },
+    {
+      "id": "reply-false-2",
+      "split": "held_out",
+      "expected": false,
+      "approved": false,
+      "reason": "unsupported",
+      "choice": "sem_apoio",
+      "noul": 0.01,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 264.4
+    },
+    {
+      "id": "reply-false-3",
+      "split": "development",
+      "expected": false,
+      "approved": false,
+      "reason": "unsupported",
+      "choice": "sem_apoio",
+      "noul": 0.01,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 209.2
+    },
+    {
+      "id": "reply-false-4",
+      "split": "held_out",
+      "expected": false,
+      "approved": false,
+      "reason": "unsupported",
+      "choice": "sem_apoio",
+      "noul": 0.01,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 241.5
+    },
+    {
+      "id": "reply-false-5",
+      "split": "development",
+      "expected": false,
+      "approved": false,
+      "reason": "unsupported",
+      "choice": "sem_apoio",
+      "noul": 0.01,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 270.6
+    },
+    {
+      "id": "reply-false-6",
+      "split": "held_out",
+      "expected": false,
+      "approved": false,
+      "reason": "unsupported",
+      "choice": "sem_apoio",
+      "noul": 0.01,
+      "model": "jev-1.14.0",
+      "elapsed_ms": 297.6
+    }
+  ],
+  "false_approvals": 0,
+  "true_approvals": 10,
+  "warm_p95_ms": 511.6,
+  "recorded_on": "2026-10-27",
+  "reference_time": "2026-10-27T09:00:00-03:00",
+  "limitations": [
+    "Synthetic regression set only; 2 of 12 supported cases were conservatively refused (attributed opinion and timezone conversion).",
+    "All 12 unsupported cases were refused. The frozen held_out partition had also been exercised against rubric 1; this is not a new independent benchmark.",
+    "No private session, financial record, API key or raw vendor response body is retained."
+  ]
+}

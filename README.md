@@ -423,3 +423,53 @@ A validação local usa o SDK real com transporte capturado para verificar árvo
 correlação, tokens e remoção de conteúdo. A entrega não ativou tracing nem alterou
 contas externas; confira um turno sintético no projeto LangSmith após habilitá-lo
 no ambiente de implantação.
+
+## Validação de evidências e gravações financeiras
+
+A [spec 004](specs/004-evidence-validation/spec.md) acrescenta o JEV da TypeSafe.
+Configure sua própria `TYPESAFE_API_KEY` no `.env` e reinicie a API. O exemplo
+versionado deixa a chave vazia: o servidor inicia, mas recusa respostas factuais
+não verificadas e operações financeiras que dependem dessa validação. A chave
+da aula não é reutilizada. O modelo é fixado em `jev-1.14.0`, com prazo de cinco
+segundos por validação e sem retentativas automáticas.
+
+O JEV recebe uma cópia minimizada da pergunta, resposta ou comando e evidências
+necessárias. Identificadores, credenciais e contatos privados são removidos ou
+substituídos consistentemente; valores, datas, moeda, comerciantes e fatos públicos
+do FAQ necessários ao julgamento continuam sendo enviados à TypeSafe. Logs e
+telemetria guardam somente metadados dessa validação. O custo do JEV permanece
+marcado como incompleto enquanto não houver preço verificado no catálogo local.
+
+Respostas geradas são verificadas após o compliance; FAQ e respostas diretas do
+roteador também passam pelo juiz. Somente `apoiada` com `noul >= 0.70` preserva o
+texto original. Nos outros casos, o chat informa que não tem evidência.
+
+Novos valores financeiros exigem BRL explícito: por exemplo, “camisa por 120
+reais”. Sem preço/moeda, com dólar/euro ou referência ambígua, o sistema pede
+esclarecimento e não grava. Alterações e cancelamentos resolvem o registro do
+próprio usuário antes da validação, e a propriedade é conferida novamente na
+escrita. Operações confirmadas geram recibos determinísticos, sem depender de um
+novo julgamento após o commit. Não há transação distribuída entre banco, histórico
+e entrega HTTP: em caso de resultado incerto, consulte antes de repetir.
+
+Registros antigos sem indicação de outra moeda são presumidos em BRL, sem
+reescrever dados. Um saldo cujo escopo inclua moeda estrangeira não é apresentado
+como total em BRL. Alterar o valor de um registro explicitamente estrangeiro para
+reais também é recusado, pois esta etapa não faz conversão. Cancelar/restaurar um
+registro não exige repetir moeda e valor. Chamadas idênticas de escrita no mesmo
+turno são deduplicadas; novas requisições e reinícios não possuem deduplicação
+durável. Um turno com várias operações pode confirmar algumas antes de uma falha.
+
+As tools de escrita do MCP exigem agora `operation_evidence`, contendo o pedido
+confirmado pelo usuário. `source_text` sozinho não substitui esse contexto. As
+tools continuam retornando envelopes estruturados e exigindo confirmação pelo
+cliente; o servidor não comprova criptograficamente a origem dessa fala.
+
+Testes locais: `uv run pytest`. Integração em containers descartáveis:
+`uv run pytest -m integration`. A [simulação Postman](postman/simulations/jev/jev.context.md)
+exercita HTTP real sem credenciais. A avaliação sintética em português é opt-in:
+defina `RUN_JEV_EVALUATION=1` e execute
+`uv run pytest -m integration tests/integration/test_jev_evaluation.py -s`.
+Ela usa exclusivamente as [24 fixtures sintéticas](specs/004-evidence-validation/evaluation-cases.json).
+A aprovação nos testes determinísticos não substitui esse gate de qualidade e
+latência do modelo real.

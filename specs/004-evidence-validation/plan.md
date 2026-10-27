@@ -7,7 +7,8 @@ Last updated: 2026-10-27
 
 Preserve the repository layout and dependency direction. Add narrowly scoped files
 inside existing directories; do not relocate modules or introduce a new service.
-No runtime work is authorized by this plan.
+The subsequent user request authorized runtime work, .env.example updates,
+commits and a draft English PR. No deployment is included.
 
 | Requirements | Existing area | Planned responsibility |
 | --- | --- | --- |
@@ -51,6 +52,11 @@ The collector receives a trusted request envelope from graph execution or the MC
 entry point and per-tool typed results from the shared tool boundary. Services
 receive explicit typed command evidence, avoiding application dependencies on
 ContextVar or LangChain. AgentTool owns context plumbing only.
+The implemented service owns validation and receives a typed FinancialExecution
+envelope rather than accepting a caller's preapproved flag. For changes it reads
+the real user-scoped target through resolve_transaction and reuses the same target
+query builder when writing. This supplies actual target facts to JEV without
+holding a SQL transaction open during the HTTP call.
 
 Use current original human input plus bounded previous human clarification
 messages. Filter by user/session on the server. Never count prior tools as fresh
@@ -163,10 +169,10 @@ the acceptance criteria.
 
 ## Delivery, prerequisites and recovery
 
-An explicit code-generation request and authorization for the listed configuration
-edits are required before implementation. A separately supplied own JEV key and
-network access are required for live evaluation. No paid resource provisioning,
-publishing or commits are part of this task.
+Implementation/configuration-example edits and commits are authorized by the
+follow-up request. A separately supplied own JEV key and network access are
+required for live evaluation. No paid resource provisioning or deployment is
+included; publishing the requested draft PR is authorized.
 
 Roll out contracts/adapter, financial validation/receipts, graph integration and
 observability in that order. No migration or data reset. Existing records remain.

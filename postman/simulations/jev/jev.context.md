@@ -17,3 +17,8 @@ deadline. Other paths return 501. Do not send private data or real credentials.
 
 Execution evidence is recorded in specs/004-evidence-validation/tasks.md. The
 simulation proves transport/decision/failure behavior, not Portuguese fidelity.
+
+Verified 2026-10-27 with Postman CLI 1.76.0: all eight adapter cases passed.
+The request log showed this member serving every outcome path; no member was
+silent. The hanging fixture answered after six seconds while the adapter had
+already refused within its five-second deadline. No real vendor call was made.

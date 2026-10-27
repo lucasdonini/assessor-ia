@@ -9,54 +9,55 @@ Last updated: 2026-10-27
 - [x] T-001: Inspect the supplied HTML, architecture, relevant source/tests and
   existing SDD conventions; resolve product choices interactively.
   Evidence: decisions and source references in spec.md; documentation only.
-- [ ] T-002: After explicit implementation/configuration authorization, define typed
+- [x] T-002: After explicit implementation/configuration authorization, define typed
   judge/command/result contracts, settings injection and rubric version 1.
   Depends on T-001. Evidence: architecture/type checks and reviewed fixtures.
-- [ ] T-003: Build the bounded asynchronous JEV adapter and decision policy.
+- [x] T-003: Build the bounded asynchronous JEV adapter and decision policy.
   Depends on T-002. Evidence: controlled HTTP success/failure/strict parsing tests.
-- [ ] T-004: Capture invocation-local trusted input and typed tool evidence with
+- [x] T-004: Capture invocation-local trusted input and typed tool evidence with
   minimization, byte budget and concurrency isolation.
   Depends on T-002. Evidence: nested-tool, cross-turn/user/session tests.
-- [ ] T-005: Enforce financial validation before mutation, explicit BRL on new
+- [x] T-005: Enforce financial validation before mutation, explicit BRL on new
   amounts, legacy interpretation and complete-scope balance safeguards. Cover
   add/update/cancel/restore and direct MCP. Add truthful ordered operation outcomes
   and within-turn deduplication.
   Depends on T-003 and T-004. Evidence: service/tool tests and PostgreSQL effects.
-- [ ] T-006: Wire the final judge into every generated exit and deterministic
+- [x] T-006: Wire the final judge into every generated exit and deterministic
   financial/agenda receipt delivery. Eliminate post-graph generated-content
   replacement without changing agenda receipt semantics.
   Depends on T-005. Evidence: graph paths, exact text preservation, no-cycle and
   committed-write/refusal regression tests.
-- [ ] T-007: Record safe judge/model-call telemetry with old-document compatibility
+- [x] T-007: Record safe judge/model-call telemetry with old-document compatibility
   and honest usage/cost completeness.
   Depends on T-003 and T-006. Evidence: telemetry/monitor/persistence tests.
 - [ ] T-008: Run targeted checks and regressions; exercise the actual adapter via
   Postman simulations; run the fixed synthetic Portuguese evaluation with an own
   key; record model/rubric, outcomes, latency and limitations.
   Depends on T-003 through T-007. Evidence: command outputs and per-case report.
-- [ ] T-009: Update operational/MCP documentation and completion evidence; mark
-  Implemented only after all gates pass. No commit/push without a separate request.
-  Depends on T-008. Evidence: requirement traceability and reviewed final diff.
+- [x] T-009: Update operational/MCP documentation and review evidence; retain
+  In progress while the real-provider gate is pending. The follow-up user request
+  authorizes commits, push and a draft English PR.
+  Evidence: README, this record and explicit delivery limitations.
 
 ## Requirement traceability
 
 | Requirement | Acceptance | Tasks | Verification location | Result |
 | --- | --- | --- | --- | --- |
-| FR-001 | AC-001 | T-006 | tests/test_agents | Not run |
-| FR-002 | AC-002 | T-003, T-006 | tests/test_infrastructure, tests/test_agents | Not run |
-| FR-003 | AC-003 | T-004 | tests/test_tools, tests/test_agents | Not run |
-| FR-004 | AC-004 | T-004, T-008 | Evidence fixtures and synthetic model evaluation | Not run |
-| FR-005 | AC-005 | T-005 | tests/test_services, tests/test_tools | Not run |
-| FR-006 | AC-006 | T-005 | Currency/amount unit and PostgreSQL integration tests | Not run |
-| FR-007 | AC-007 | T-005, T-006 | Receipt graph and repository integration tests | Not run |
-| FR-008 | AC-008 | T-005 | Legacy/mixed-currency balance integration fixtures | Not run |
-| FR-009 | AC-009 | T-003, T-005 | HTTP failures, deadline, cancellation and zero-write tests | Not run |
-| FR-010 | AC-010 | T-007 | Existing telemetry/monitor test areas | Not run |
-| FR-011 | AC-011 | T-006 | tests/test_agents/test_agenda_receipts.py and graph tests | Not run |
-| FR-012 | AC-012 | T-005 | tests/test_mcp_server.py | Not run |
-| NFR-001 | AC-013 | T-002, T-008 | Typing, architecture, API and DI regressions | Not run |
-| NFR-002 | AC-009, AC-014 | T-003, T-008 | Controlled deadlines, call counts and measured latency | Not run |
-| NFR-003 | AC-014 | T-008 | Fixed 24-case Portuguese dataset and results | Not run |
+| FR-001 | AC-001 | T-006 | tests/test_agents | Passed deterministic checks |
+| FR-002 | AC-002 | T-003, T-006 | tests/test_infrastructure, tests/test_agents | Passed deterministic checks |
+| FR-003 | AC-003 | T-004 | tests/test_tools, tests/test_agents | Passed deterministic checks |
+| FR-004 | AC-004 | T-004, T-008 | Evidence fixtures and synthetic model evaluation | Contract checks passed; live semantics pending |
+| FR-005 | AC-005 | T-005 | tests/test_services, tests/test_tools | Passed deterministic checks |
+| FR-006 | AC-006 | T-005 | Currency/amount unit and PostgreSQL integration tests | Passed deterministic checks |
+| FR-007 | AC-007 | T-005, T-006 | Receipt graph and repository integration tests | Passed deterministic checks |
+| FR-008 | AC-008 | T-005 | Legacy/mixed-currency balance integration fixtures | Passed deterministic checks |
+| FR-009 | AC-009 | T-003, T-005 | HTTP failures, deadline, cancellation and zero-write tests | Passed deterministic checks |
+| FR-010 | AC-010 | T-007 | Existing telemetry/monitor test areas | Passed deterministic checks |
+| FR-011 | AC-011 | T-006 | tests/test_agents/test_agenda_receipts.py and graph tests | Passed deterministic checks |
+| FR-012 | AC-012 | T-005 | tests/test_mcp_server.py | Passed deterministic checks |
+| NFR-001 | AC-013 | T-002, T-008 | Typing, architecture, API and DI regressions | Passed deterministic checks |
+| NFR-002 | AC-009, AC-014 | T-003, T-008 | Controlled deadlines, call counts and measured latency | Deadline/call checks passed; live p95 pending |
+| NFR-003 | AC-014 | T-008 | Fixed 24-case Portuguese dataset and results | Dataset and runner delivered; live gate pending |
 
 ## Verification record
 
@@ -66,13 +67,36 @@ Last updated: 2026-10-27
 | 2026-10-27 | Resolve scope, provider, currency, receipts, legacy treatment and outage behavior through interactive questions | Completed | User choices consolidated in spec.md; JEV supersedes the temporary open-model proposal. |
 | 2026-10-27 | Check official TypeSafe API/model documentation | Completed | API contract and version pin documented; no credential used or authenticated call performed. |
 | 2026-10-27 | Check local Markdown links, requirement coverage and whitespace | Passed | All local links resolve; all 15 requirements appear in traceability; no trailing whitespace. git diff --check reported no tracked-file issues; new untracked documents were checked separately. |
-| 2026-10-27 | Runtime tests, Postman simulation and live JEV evaluation | Not run | Documentation-only task; implementation and runtime configuration unchanged. |
+| 2026-10-27 | `.venv/Scripts/python.exe -m ruff check app tests` and `ruff format --check app tests` | Passed | All checked files clean/formatted; repository pre-commit Ruff hooks also passed. |
+| 2026-10-27 | `.venv/Scripts/python.exe -m mypy app` | Passed | 168 source files; no typing issues. |
+| 2026-10-27 | `.venv/Scripts/python.exe -m pytest -o addopts= -m "not integration" -q` | Passed | 532 passed, 96 deselected. Includes exact-text, all graph exits, privacy, command checks and receipt delivery. The final timeout trace adjustment also passed all 12 graph-execution cases and MyPy. |
+| 2026-10-27 | `.venv/Scripts/python.exe -m pytest -o addopts= -m integration -q --maxfail=3` | Passed | 78 passed, 18 skipped. Optional external simulations and live evaluation were not enabled in this full-suite run. PostgreSQL/MongoDB containers were disposable. |
+| 2026-10-27 | Targeted final currency/service/graph and PostgreSQL checks | Passed | 45 focused unit checks and 3 financial database checks passed after the foreign-legacy amount guard/message adjustment. |
+| 2026-10-27 | Start Postman CLI 1.76.0 simulation; set JEV_SIMULATION_URL; run `pytest -o addopts= -m integration tests/integration/test_jev_http.py -q` | Passed | 8 passed; real httpx adapter over HTTP. Simulation request log showed all eight paths including 429, 500 and a response arriving after the client deadline. No private key/data used. |
+| 2026-10-27 | Check only whether TYPESAFE_API_KEY is configured | Not configured | No own key present. The 24-case live semantic/latency evaluation was not run; no classroom key was read or used. |
 
 ## Deferred work and completion
 
-Only T-001 and specification authoring are complete. No application code,
-configuration, environment values, database rows or external resources were
-modified. No commits or pushes were made.
+Implementation and deterministic verification are delivered. T-008 remains open
+only for the real-provider evaluation; the feature stays In progress. No private
+.env, production data, deployed resources or schema migrations were changed.
+The new .env.example documents the optional startup key and fail-closed behavior.
+
+The evaluation dataset is [evaluation-cases.json](evaluation-cases.json), with 12
+development and 12 held-out cases, balanced by support and command/reply stage.
+The opt-in runner is
+[the live evaluation test](../../tests/integration/test_jev_evaluation.py).
+It records each result and actual model/rubric/latency and enforces the original
+gate without treating provider unavailability as a correct refusal.
+
+Reproduce the pending gate after configuring an own key: set RUN_JEV_EVALUATION=1
+and run `uv run pytest -m integration tests/integration/test_jev_evaluation.py -s`.
+Do not mark Implemented or claim Portuguese quality until that passes.
+
+Commit sequence: specification; JEV adapter/configuration/telemetry and HTTP
+simulation; financial command validation/graph/receipts with regression tests;
+evaluation fixtures and delivery documentation. All are authorized by the user.
+The draft PR must state the real-provider limitation explicitly.
 
 Deferred deliberately: multi-currency storage/conversion, historical correction,
 durable cross-request idempotency, outbox recovery, distributed isolation and

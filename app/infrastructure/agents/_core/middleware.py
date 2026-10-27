@@ -1,3 +1,6 @@
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import Awaitable, Callable, Iterator
 
 from langchain.agents.middleware import (
@@ -9,6 +12,39 @@ from langchain.chat_models import BaseChatModel
 
 from app.application.ports.logger import LoggerFactory
 from app.infrastructure.observability import observe_fallback
+
+
+@dataclass
+class _ToolChoice:
+    name: str
+    used: bool = False
+
+
+_tool_choice: ContextVar[_ToolChoice | None] = ContextVar(
+    "financial_tool_choice", default=None
+)
+
+
+@contextmanager
+def financial_tool_choice(name: str) -> Iterator[None]:
+    token = _tool_choice.set(_ToolChoice(name))
+    try:
+        yield
+    finally:
+        _tool_choice.reset(token)
+
+
+class FinancialToolChoiceMiddleware(AgentMiddleware):
+    async def awrap_model_call(
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
+    ) -> ModelResponse:
+        choice = _tool_choice.get()
+        if choice is not None and not choice.used:
+            choice.used = True
+            request = request.override(tool_choice=choice.name, response_format=None)
+        return await handler(request)
 
 
 def _iter_exception_chain(exc: BaseException) -> Iterator[BaseException]:

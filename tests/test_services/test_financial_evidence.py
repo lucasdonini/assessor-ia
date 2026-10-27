@@ -10,7 +10,11 @@ from app.application.exceptions import (
     FinancialOutcomeUnknownError,
     UnsupportedCurrencyError,
 )
-from app.application.models.currency import brl_statement, explicit_brl
+from app.application.models.currency import (
+    brl_statement,
+    explicit_brl,
+    known_brl_amount,
+)
 from app.application.models.evidence import FinancialExecution, Judgment
 from app.application.models.transaction_update import (
     UpdateTransactionParams,
@@ -37,6 +41,12 @@ from app.services.transaction_service import TransactionService
 )
 def test_currency_is_deterministic(text, amount, valid):
     assert explicit_brl(text, amount) is valid
+
+
+def test_repair_amount_is_only_taken_from_current_supported_request():
+    assert known_brl_amount(("Comprei por 42 reais", "Sim")) == 42
+    assert known_brl_amount(("Comprei por 42 reais", "Outro pedido")) is None
+    assert known_brl_amount(("Comprei por 42 dólares", "Sim")) is None
 
 
 @pytest.mark.parametrize("followups", [("Sim",), ("Sim", "120"), ("Sim", "120", "120")])

@@ -1,10 +1,13 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from langchain.agents.middleware import ModelRequest
 
 from app.application.ports.logger import Logger
 from app.infrastructure.agents._core.middleware import (
     FallbackOn429Middleware,
+    FinancialToolChoiceMiddleware,
+    financial_tool_choice,
     is_rate_limit_error,
 )
 
@@ -13,6 +16,21 @@ class _StatusError(Exception):
     def __init__(self, status_code: int) -> None:
         self.status_code = status_code
         super().__init__(f"HTTP {status_code}")
+
+
+@pytest.mark.asyncio
+async def test_financial_tool_choice_is_once_only_and_scoped():
+    middleware = FinancialToolChoiceMiddleware()
+    request = ModelRequest(model=MagicMock(), messages=[])
+    handler = AsyncMock()
+    with financial_tool_choice("add_transaction"):
+        await middleware.awrap_model_call(request, handler)
+        assert handler.call_args.args[0].tool_choice == "add_transaction"
+        assert handler.call_args.args[0].response_format is None
+        await middleware.awrap_model_call(request, handler)
+        assert handler.call_args.args[0] is request
+    await middleware.awrap_model_call(request, handler)
+    assert handler.call_args.args[0] is request
 
 
 class _CodeError(Exception):

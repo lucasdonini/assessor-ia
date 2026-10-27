@@ -221,3 +221,29 @@ confirmation paths also passed through TransactionService with the real JEV and 
 non-writing fake repository; PostgreSQL tests separately verified persisted origin.
 The original held_out partition had already been run under rubric 1, so these
 results are a fixed regression measurement, not a pristine independent benchmark.
+
+## Routing contract and full runtime verification
+
+The production router returns a schema-constrained registered route/direct response
+through the existing AgentFactory port. For Groq with tools the infrastructure
+factory selects ToolStrategy; native JSON mode cannot be combined with history
+function calling. The graph consumes the explicit route, and only injected legacy
+AgentNode implementations retain the text-protocol fallback for compatibility.
+No routing protocol is forwarded to the evidence judge as a factual answer.
+
+Verify the entire runtime separately from component evaluation:
+RUN_GRAPH_EVALUATION=1 with `uv run python -m tests.integration.test_live_financial_graph`.
+This uses real providers and fictional inputs with fake repositories/history/FAQ,
+without starting the application or reading private session/database records.
+
+Native structured-response normalization is required in the financial node before
+calling the orchestrator. Preserve pending_route in the checkpoint only for an
+unresolved financial clarification; narrow confirmations go directly back to that
+registered domain, and normal new routing clears the pending marker.
+
+One bounded generation repair is allowed only before any write attempt. A scoped
+middleware selects the proposed business tool for one model call and then restores
+normal structured completion. Validation/ownership checks are never bypassed, and
+no rejected, uncertain or confirmed write is retried. The same ToolStrategy is used
+by primary and fallback models. The fallback model is catalog-verified and Gemini
+SDK attempts are bounded to make 429 fallback prompt.

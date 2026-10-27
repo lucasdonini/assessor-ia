@@ -39,6 +39,12 @@ Last updated: 2026-10-27
   authorizes commits, push and a draft English PR.
   Evidence: README, this record and explicit delivery limitations.
 
+- [x] T-010: Correct the reported router bypass with a structured decision, explicit
+  graph route, delegation rules for purchase reports, Groq-compatible tool strategy
+  and a full production-construction live check using fictional inputs/fake stores.
+  Requirements: FR-001, FR-013, NFR-003. Evidence: router/schema tests and
+  tests/integration/test_live_financial_graph.py; see the routing follow-up below.
+
 ## Requirement traceability
 
 | Requirement | Acceptance | Tasks | Verification location | Result |
@@ -55,6 +61,7 @@ Last updated: 2026-10-27
 | FR-010 | AC-010 | T-007 | Existing telemetry/monitor test areas | Passed deterministic checks |
 | FR-011 | AC-011 | T-006 | tests/test_agents/test_agenda_receipts.py and graph tests | Passed deterministic checks |
 | FR-012 | AC-012 | T-005 | tests/test_mcp_server.py | Passed deterministic checks |
+| FR-013 | AC-015 | T-010 | Router/schema tests and production live graph evaluation | Passed; see follow-up |
 | NFR-001 | AC-013 | T-002, T-008 | Typing, architecture, API and DI regressions | Passed deterministic checks |
 | NFR-002 | AC-009, AC-014 | T-003, T-008 | Controlled deadlines, call counts and measured latency | Passed; live warm p95 511.6 ms |
 | NFR-003 | AC-014 | T-008 | Fixed 24-case Portuguese dataset and results | Passed 24-case live gate; see results |
@@ -124,3 +131,53 @@ weaken the listed pre-write or receipt requirements.
   decisions, model and timings. Opinion attribution and timezone conversion remain
   two observed false refusals. The held_out partition was previously exercised
   with rubric 1; this is a regression set, not an independent accuracy estimate.
+
+## Routing bypass follow-up (2026-10-27)
+
+- Logs matching the screenshot showed no specialist invocation; reply validation
+  refused the router output. No raw private router response was logged or exported.
+- Replaced free-text route inference for the production router with a schema-
+  validated registered route/direct decision in GraphState. The server constructs
+  the internal handoff; structured routing output never becomes a business reply.
+- Explicitly delegate purchase reports and financial confirmation continuations.
+- Live native JSON + history-tool verification returned Groq HTTP 400. ToolStrategy
+  fixed this provider constraint without disabling history lookup. A unit regression
+  covers the factory configuration.
+- Full production-construction runner uses real Groq/Gemini/JEV and entirely fake
+  stores. It runs outside pytest to avoid tests/conftest.py's LangChain patch. All three
+  fictional purchases reached financial and yielded one confirmed receipt each,
+  with zero real database writes. Results are saved in graph-evaluation-results.json.
+- Reproduction using the user's specific text was blocked by automatic review; all
+  external reproduction used different, explicitly fictional merchants and amounts.
+
+### Full-flow issues discovered beyond the initial routing fix
+
+Repeated live runs also exposed a missing financial structured_response payload,
+optional category clarification, a lost pending confirmation domain, and SDK quota
+backoff followed by an unavailable Qwen fallback. These were not hidden by the
+standalone JEV gate; earlier successful two-case runs were insufficient.
+
+The financial node now forwards typed output and derives escrita from actual
+results. Pending clarifications preserve their domain. A single scoped generation
+repair can choose a real tool only before any business-write attempt; it never
+retries a failed/rejected/uncertain/confirmed write. Groq native JSON + tools was
+replaced by ToolStrategy consistently across providers. The fallback uses the
+already-available openai/gpt-oss-120b; a metadata-only model-catalog request confirmed
+the prior fallback was unavailable and the replacement available. Gemini HTTP
+attempts are bounded so the explicit 429 fallback runs without SDK backoff.
+
+Final evidence: 560 unit tests passed; Ruff, formatting and MyPy passed (169 app
+source files). Final full integration: 80 passed, 21 skipped (optional external
+prerequisites not enabled in that combined run). The production-runtime live
+check was run separately and passed all three cases. The
+standalone production runtime passed all three fictional purchases on their first
+messages: financial was invoked, one simulated write occurred per purchase, and
+all replies were confirmed receipts. No real database writes occurred.
+See [graph-evaluation-results.json](graph-evaluation-results.json). This is an
+additional end-to-end regression gate, not a claim of universal model accuracy.
+
+Final commands: `.venv/Scripts/python.exe -m pytest -o addopts= -m "not integration" -q`
+(560 passed); `.venv/Scripts/python.exe -m pytest -o addopts= -m integration -q --maxfail=3`
+(80 passed, 21 skipped); `RUN_GRAPH_EVALUATION=1` with
+`.venv/Scripts/python.exe -m tests.integration.test_live_financial_graph`
+(three first-turn receipts, three simulated writes, zero real writes).

@@ -1,0 +1,48 @@
+{
+  "synthetic_only": true,
+  "real_models": true,
+  "real_database_writes": 0,
+  "simulated_writes": 3,
+  "turns": [
+    {
+      "called_agents": [
+        "input_guardrail",
+        "router",
+        "financial",
+        "orquestrator",
+        "output_guardrail",
+        "evidence_judge"
+      ],
+      "content": "Lançamento registrado em BRL."
+    },
+    {
+      "called_agents": [
+        "input_guardrail",
+        "router",
+        "financial",
+        "orquestrator",
+        "output_guardrail",
+        "evidence_judge"
+      ],
+      "content": "Lançamento registrado em BRL."
+    },
+    {
+      "called_agents": [
+        "input_guardrail",
+        "router",
+        "financial",
+        "orquestrator",
+        "output_guardrail",
+        "evidence_judge"
+      ],
+      "content": "Lançamento registrado em BRL."
+    }
+  ],
+  "recorded_on": "2026-10-27",
+  "runtime": "Production graph construction, executed as a Python module outside pytest compatibility patches.",
+  "limitations": [
+    "Entirely fictional purchases; repositories, history, profile and FAQ were fake. Model APIs were real.",
+    "Three successful first-message registrations are regression evidence, not a guarantee of general model reliability.",
+    "Earlier attempts exposed optional-field clarification, missing native specialist payloads, quota fallback and provider strategy failures; these were corrected before this recorded run."
+  ]
+}

@@ -75,6 +75,7 @@ validation rather than bypass it.
 | FR-010 | Record judge stage, verdict/reason, noul, resolved model, duration and available token usage through existing logging/telemetry. Logs, monitor and traces must not retain prompts, responses, financial evidence, credentials, or raw vendor errors. | AC-010 |
 | FR-011 | Maintain existing agenda receipts and local/Google partial-failure wording. No post-graph override may replace a judge-checked generated answer. Trusted receipts are an explicit deterministic path, not unverified generated text. | AC-011 |
 | FR-012 | MCP financial mutations enforce the same deterministic currency/target rules and JEV command validation against explicitly supplied operation evidence. Missing trustworthy operation context fails closed; never fabricate a human chat turn or trust model-created source_text as independent proof. | AC-012 |
+| FR-013 | Router decisions use a schema-validated registered route or direct response; financial declarations reach the financial specialist. Internal routing data cannot be judged or delivered as a factual reply. | AC-015 |
 | NFR-001 | Use injected typed contracts and an asynchronous HTTP adapter; reuse httpx. Keep PostgreSQL/MongoDB/Qdrant layout and existing public chat fields. No application reorganization or new ML runtime dependencies. | AC-013 |
 | NFR-002 | Bound each judge request to 5 seconds, with no automatic retries, within the existing overall graph deadline. At most one pre-write validation per distinct command and one final validation per generated reply. Receipts require no post-commit model call. | AC-009, AC-014 |
 | NFR-003 | Validate behavior with deterministic contract tests plus a fixed synthetic Portuguese evaluation. Record actual model/version, rubric, false approvals, false refusals and latency; a score is not a guarantee of truth. | AC-014 |
@@ -97,6 +98,8 @@ validation rather than bypass it.
 | AC-012 | A direct MCP add/update/cancel/restore with and without explicit operation evidence and currency where required | Valid inputs share pre-write safeguards; missing context is a safe tool failure. Existing confirmation instructions remain. Structured outcomes report actual effects. |
 | AC-013 | Existing clients call chat and two users run concurrently | ChatResponse shape and authorization remain compatible; no cross-user evidence; DI/typing/lint checks pass. |
 | AC-014 | Frozen Portuguese fixtures and model configuration | All deterministic cases pass; live evaluation meets the gate in plan.md, with results and limitations recorded. |
+
+| AC-015 | A fictional purchase report with explicit BRL enters the complete production graph | A validated financial route reaches the specialist and produces one confirmed receipt; malformed/unknown route decisions fail as routing errors, never as unsupported business facts. A live evaluation uses real models and fake stores, without pytest compatibility patches. |
 
 ## Contracts and data behavior
 
@@ -249,3 +252,47 @@ Checked 2026-10-27. [TypeSafe System One API](https://docs.typesafe.ai/api/syste
 defines request/response fields. [TypeSafe models](https://docs.typesafe.ai/models)
 documents versioned models and moving aliases. These support the pinned model and
 HTTP contract; they do not establish project-specific accuracy or latency.
+
+## Routing regression follow-up
+
+The screenshot and metadata confirmed input_guardrail -> router -> evidence_judge
+without a financial specialist. The router's original text was intentionally not
+logged, so its exact contents cannot be reconstructed from metadata. A real-model
+fictional reproduction did not consistently reproduce the bypass. The confirmed
+weakness was that the graph inferred a route from free-form assistant text and
+the prompt allowed financial purchase reports to be treated as direct conversation.
+
+RouterAgentNode now requires a registered schema-constrained route/direct decision,
+sets GraphState.route explicitly, and constructs any internal handoff itself.
+History-tool calls remain available. Groq uses ToolStrategy because native JSON
+mode with function calling returned HTTP 400 in live verification. Purchase reports
+and financial confirmations are explicitly delegated; specialist clarification and
+financial pre-write validation remain in place.
+
+The complete production construction is evaluated by
+[the opt-in live graph runner](../../tests/integration/test_live_financial_graph.py),
+with fictional purchases, real model APIs and fake repositories/history/profile/FAQ.
+This closes the earlier verification gap: a successful standalone JEV gate alone
+did not establish that the router and specialist could complete a user turn.
+
+Financial native structured results are explicitly serialized into the shared
+conversation before orchestration; a provider's empty AI content is not the
+specialist result. Pending financial clarification keeps the domain for narrow
+confirmations without asking the router model again. Optional category/payment/date
+fields use documented defaults instead of blocking a complete BRL purchase.
+
+If the specialist proposes a write without attempting any business tool, at most
+one generation repair can select the corresponding tool for one model call.
+Actual command validation and repository execution still occur through the existing
+tool/service. The repair is forbidden after any write attempt, refusal, uncertainty
+or confirmed receipt. Reported escrita is derived from actual service results,
+not model claims. This is not a retry of a business write.
+
+Primary and fallback agents use the same tool-compatible structured strategy.
+The unavailable Groq fallback was replaced with the already-used, catalog-verified
+openai/gpt-oss-120b. Gemini uses one HTTP attempt so SDK backoff does not delay
+the explicit 429 fallback. No private environment values were changed.
+
+The final [production graph results](graph-evaluation-results.json) record three
+fictional first-message purchases reaching financial, one simulated write each,
+and deterministic confirmed receipts, with zero real database writes.

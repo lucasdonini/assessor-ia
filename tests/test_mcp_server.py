@@ -40,6 +40,8 @@ async def test_catalog_exposes_all_financial_agent_tools() -> None:
             }
         )
         assert "user_id" not in str(tool.input_schema)
+        if not tool.annotations.read_only_hint:
+            assert "operation_evidence" in tool.input_schema["required"]
 
 
 def test_identity_requires_configured_uuid(monkeypatch: pytest.MonkeyPatch) -> None:

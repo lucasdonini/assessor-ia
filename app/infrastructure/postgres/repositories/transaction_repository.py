@@ -2,15 +2,20 @@ import logging
 from datetime import date, datetime, time, timedelta
 from uuid import UUID
 
-from sqlalchemy import ScalarSelect, func, select
+from sqlalchemy import ScalarSelect, Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.application.exceptions import AmbiguousTransactionError
+from app.application.exceptions import (
+    AmbiguousTransactionError,
+    MixedCurrencyBalanceError,
+)
+from app.application.models.currency import FOREIGN
 from app.application.models.transaction_query import (
     TransactionQueryParams,
 )
 from app.application.models.transaction_update import (
     UpdateTransactionParams,
+    UpdateTransactionQuery,
 )
 from app.domain.model.transaction import Transaction, TransactionType
 from app.infrastructure.postgres.entities.transaction import TransactionORM
@@ -98,6 +103,20 @@ class SQLAlchemyTransactionRepository:
         stmt = select(income - expenses)
 
         async with self._session_factory() as session:
+            currency_stmt = select(TransactionORM.source_text).where(
+                TransactionORM.user_id == user_id,
+                ~TransactionORM.is_canceled,
+                TransactionORM.transaction_type.in_(
+                    [TransactionType.INCOME, TransactionType.EXPENSE]
+                ),
+            )
+            if period_end:
+                currency_stmt = currency_stmt.where(
+                    TransactionORM.occurred_at < period_end
+                )
+            sources = await session.scalars(currency_stmt)
+            if any(FOREIGN.search(text) for text in sources):
+                raise MixedCurrencyBalanceError
             return float(await session.scalar(stmt) or 0)
 
     async def find(
@@ -105,7 +124,7 @@ class SQLAlchemyTransactionRepository:
     ) -> list[Transaction]:
         logger.info(
             "Searching transactions",
-            extra={"details": {"params": params.model_dump()}},
+            extra={"details": {"filters": sorted(params.model_fields_set)}},
         )
 
         if params.limit is not None and params.limit <= 0:
@@ -171,20 +190,13 @@ class SQLAlchemyTransactionRepository:
             await session.refresh(orm)
         return self._orm_to_model(orm)
 
-    async def update_transaction(
-        self, params: UpdateTransactionParams, *, user_id: UUID
-    ) -> Transaction | None:
-        logger.info(
-            "Updating transaction",
-            extra={"details": {"params": params.model_dump()}},
-        )
-
+    def _target_statement(
+        self, query: UpdateTransactionQuery, user_id: UUID
+    ) -> Select[tuple[TransactionORM]]:
         stmt = select(TransactionORM).where(TransactionORM.user_id == user_id)
-        if id := params.query.id:
+        if id := query.id:
             stmt = stmt.where(TransactionORM.id == id)
-        elif (match_text := params.query.match_text) and (
-            date_local := params.query.date_local
-        ):
+        elif (match_text := query.match_text) and (date_local := query.date_local):
             period_start = datetime.combine(date_local, time.min)
             period_end = datetime.combine(date_local + timedelta(days=1), time.min)
             stmt = stmt.where(
@@ -199,6 +211,28 @@ class SQLAlchemyTransactionRepository:
             raise AssertionError("Update command must contain a valid reference")
 
         stmt = stmt.order_by(TransactionORM.occurred_at.desc()).limit(2)
+        return stmt
+
+    async def resolve_transaction(
+        self, query: UpdateTransactionQuery, *, user_id: UUID
+    ) -> Transaction | None:
+        async with self._session_factory() as session:
+            targets = (
+                await session.scalars(self._target_statement(query, user_id))
+            ).all()
+            if len(targets) > 1:
+                raise AmbiguousTransactionError
+            return self._orm_to_model(targets[0]) if targets else None
+
+    async def update_transaction(
+        self, params: UpdateTransactionParams, *, user_id: UUID
+    ) -> Transaction | None:
+        logger.info(
+            "Updating transaction",
+            extra={"details": {"fields": sorted(params.model_fields_set)}},
+        )
+
+        stmt = self._target_statement(params.query, user_id)
         to_update = params.model_dump(
             exclude_none=True,
             exclude={"query"},

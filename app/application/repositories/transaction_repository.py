@@ -3,11 +3,18 @@ from typing import Protocol
 from uuid import UUID
 
 from app.application.models.transaction_query import TransactionQueryParams
-from app.application.models.transaction_update import UpdateTransactionParams
+from app.application.models.transaction_update import (
+    UpdateTransactionParams,
+    UpdateTransactionQuery,
+)
 from app.domain.model.transaction import Transaction
 
 
 class TransactionRepository(Protocol):
+    async def resolve_transaction(
+        self, query: UpdateTransactionQuery, *, user_id: UUID
+    ) -> Transaction | None: ...
+
     async def get_balance(self, day: date | None = None, *, user_id: UUID) -> float: ...
 
     async def find(

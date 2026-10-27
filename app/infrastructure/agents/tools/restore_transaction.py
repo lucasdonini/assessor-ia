@@ -6,6 +6,7 @@ from app.application.models.transaction_update import (
     UpdateTransactionParams,
     UpdateTransactionQuery,
 )
+from app.infrastructure.agents._core.evidence import financial_execution
 from app.infrastructure.agents._core.user_context import get_user_context
 from app.services.transaction_service import TransactionService
 
@@ -42,7 +43,7 @@ class RestoreTransactionTool(
     ) -> RestoreTransactionResponse:
         params = UpdateTransactionParams(query=args.query, is_canceled=False)
         await self.service.update_transaction(
-            params, user_id=get_user_context().user_id
+            params, user_id=get_user_context().user_id, execution=financial_execution()
         )
 
         return RestoreTransactionResponse(restored=True)

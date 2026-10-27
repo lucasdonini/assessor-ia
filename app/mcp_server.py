@@ -22,6 +22,7 @@ from app.application.models.transaction_update import (
 from app.application.models.user_context import UserContext
 from app.application.ports.logger import LoggerFactory
 from app.bootstrap import create_container
+from app.infrastructure.agents._core.evidence import evidence_execution
 from app.infrastructure.agents._core.schemas.tool_response import ToolFailure
 from app.infrastructure.agents._core.user_context import bind_user_context
 from app.infrastructure.agents.financial.schemas.transaction import TransactionInput
@@ -124,11 +125,19 @@ mcp = MCPServer(
 )
 
 
-async def _call(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+async def _call(
+    name: str, arguments: dict[str, Any], operation_evidence: str = ""
+) -> dict[str, Any]:
     runtime = _runtime
     if runtime is None:
         raise RuntimeError("MCP server is not initialized")
-    with bind_user_context(runtime.user):
+    with (
+        bind_user_context(runtime.user),
+        evidence_execution(
+            runtime.user.user_id,
+            (operation_evidence,) if operation_evidence.strip() else (),
+        ),
+    ):
         result: BaseModel = await runtime.tools[name].ainvoke(arguments)
     if isinstance(result, ToolFailure):
         logging.getLogger(__name__).warning("MCP tool failed: %s", result.code)
@@ -156,33 +165,49 @@ async def search_transactions(params: TransactionQueryParams) -> dict[str, Any]:
 
 
 @mcp.tool(name="add_transaction", title="Add transaction", annotations=WRITES_DATA)
-async def add_transaction(transaction: TransactionInput) -> dict[str, Any]:
+async def add_transaction(
+    transaction: TransactionInput, operation_evidence: str
+) -> dict[str, Any]:
     """Record a transaction for the configured user. Requires user confirmation."""
-    return await _call("add_transaction", {"transaction": transaction.model_dump()})
+    return await _call(
+        "add_transaction", {"transaction": transaction.model_dump()}, operation_evidence
+    )
 
 
 @mcp.tool(
     name="update_transaction", title="Update transaction", annotations=WRITES_DATA
 )
-async def update_transaction(params: UpdateTransactionParams) -> dict[str, Any]:
+async def update_transaction(
+    params: UpdateTransactionParams, operation_evidence: str
+) -> dict[str, Any]:
     """Update a transaction by ID or text and local date. Requires confirmation."""
-    return await _call("update_transaction", {"params": params.model_dump()})
+    return await _call(
+        "update_transaction", {"params": params.model_dump()}, operation_evidence
+    )
 
 
 @mcp.tool(
     name="delete_transaction", title="Cancel transaction", annotations=WRITES_DATA
 )
-async def delete_transaction(query: UpdateTransactionQuery) -> dict[str, Any]:
+async def delete_transaction(
+    query: UpdateTransactionQuery, operation_evidence: str
+) -> dict[str, Any]:
     """Soft-delete a transaction by ID or text and date. Requires confirmation."""
-    return await _call("delete_transaction", {"query": query.model_dump()})
+    return await _call(
+        "delete_transaction", {"query": query.model_dump()}, operation_evidence
+    )
 
 
 @mcp.tool(
     name="restore_transaction", title="Restore transaction", annotations=WRITES_DATA
 )
-async def restore_transaction(query: UpdateTransactionQuery) -> dict[str, Any]:
+async def restore_transaction(
+    query: UpdateTransactionQuery, operation_evidence: str
+) -> dict[str, Any]:
     """Restore a canceled transaction. Requires user confirmation."""
-    return await _call("restore_transaction", {"query": query.model_dump()})
+    return await _call(
+        "restore_transaction", {"query": query.model_dump()}, operation_evidence
+    )
 
 
 @mcp.tool(

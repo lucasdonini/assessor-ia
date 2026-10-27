@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from app.application.models.transaction_update import (
     UpdateTransactionParams,
 )
+from app.infrastructure.agents._core.evidence import financial_execution
 from app.infrastructure.agents._core.user_context import get_user_context
 from app.infrastructure.agents.financial.schemas.transaction import TransactionOutput
 from app.services.transaction_service import TransactionService
@@ -41,7 +42,9 @@ class UpdateTransactionTool(
         self, args: UpdateTransactionArgsSchema
     ) -> UpdateTransactionResponse:
         updated = await self.service.update_transaction(
-            args.params, user_id=get_user_context().user_id
+            args.params,
+            user_id=get_user_context().user_id,
+            execution=financial_execution(),
         )
 
         return UpdateTransactionResponse(updated=TransactionOutput.from_domain(updated))

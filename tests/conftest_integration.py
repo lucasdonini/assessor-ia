@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
@@ -14,6 +14,7 @@ from sqlalchemy import Engine, create_engine
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from testcontainers.community.postgres import PostgresContainer
 
+from app.application.models.evidence import Judgment
 from app.domain.model.transaction import Category, TransactionType
 from app.infrastructure.postgres.entities.transaction import TransactionORM
 from app.infrastructure.postgres.entities.user import UserORM
@@ -97,9 +98,12 @@ def transaction_repository(session_factory) -> SQLAlchemyTransactionRepository:
 
 @pytest.fixture
 def transaction_service(transaction_repository, mock_logger) -> TransactionService:
+    validator = AsyncMock()
+    validator.validate.return_value = Judgment(approved=True, reason="test")
     return TransactionService(
         repository=transaction_repository,
         logger_factory=lambda _: mock_logger,
+        validator=validator,
     )
 
 

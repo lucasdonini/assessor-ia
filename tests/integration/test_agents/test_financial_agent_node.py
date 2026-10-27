@@ -5,6 +5,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from app.application.models.transaction_query import TransactionQueryParams
+from app.infrastructure.agents._core.evidence import evidence_execution
 from app.infrastructure.agents._core.schemas.specialist_output import FinancialOutput
 from app.infrastructure.agents._core.state import GraphState, GraphStateKeys
 from app.infrastructure.agents.financial import FinancialAgentNode
@@ -113,7 +114,8 @@ async def test_calls_add_tool_and_persists_transaction(
         _structured_response(),
     ]
 
-    result = await _run_node(financial_agent_node)
+    with evidence_execution(TEST_USER_ID, ("novo almoço pelo agente por 100 reais",)):
+        result = await _run_node(financial_agent_node)
 
     _tool_result(result, "call_add")
     persisted = await transaction_service.search_transactions(

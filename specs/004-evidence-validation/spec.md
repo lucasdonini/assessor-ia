@@ -1,6 +1,6 @@
 # [004] Evidence validation and truthful financial writes
 
-Status: Ready
+Status: In progress
 Owner: Project maintainer
 Created: 2026-10-27
 Last updated: 2026-10-27
@@ -126,8 +126,8 @@ fails closed without silently truncating potentially decisive evidence.
 ### Financial execution and receipts
 
 Validate before invoking the repository; do not hold a SQL transaction open during
-JEV calls and do not attempt rollback after commit. The service receives a typed
-validated command/evidence contract, not a provider-specific JEV response. Final
+JEV calls and do not attempt rollback after commit. The service receives typed
+command evidence and owns validation through an injected application port. Final
 ownership/target validation still occurs when executing the repository operation.
 
 For adds or amount changes, compare the proposed value to an unambiguous numeric
@@ -142,6 +142,9 @@ repeat an amount/currency; they still require explicit action and valid target.
 source_text for new rows comes from trusted user evidence, not model fabrication.
 For updates, retain the original source_text and validate new amount/currency
 against the new request. Successful new amount changes are BRL by policy.
+Amount changes on explicitly foreign legacy records are refused: without a
+persisted currency field, accepting BRL there would silently imply conversion.
+Cancel/restore remains available with a validated request.
 
 Within a turn, run financial mutations sequentially and deduplicate identical
 normalized commands. Stop further mutations after rejection/failure. Multiple
@@ -199,11 +202,12 @@ this is an intentional tightening of write inputs, documented for callers. Its
 source_text field alone is not that evidence. MCP cannot cryptographically prove
 human consent: existing caller confirmation remains a trust assumption.
 
-Future implementation needs a SecretStr TYPESAFE_API_KEY setting and injected
+Implementation uses a SecretStr TYPESAFE_API_KEY setting and injected
 judge configuration/client. A missing key does not prevent startup: it refuses
 generated claims and commands needing judgment at execution time. No key from the
 HTML is reused. Configuration source/example edits need explicit authorization
-under AGENTS.md; no environment/configuration files were changed for this spec.
+under AGENTS.md. The subsequent implementation request explicitly authorized
+implementation in commits and updating .env.example. The private .env is unchanged.
 
 ## Decisions and open questions
 
@@ -216,11 +220,12 @@ under AGENTS.md; no environment/configuration files were changed for this spec.
 | Legacy currency | User selected assumed BRL when no other currency is indicated. |
 | Judge failure | User selected preventing dependent writes and safe generated replies while preserving confirmed receipts. |
 | Privacy | Minimize and consistently anonymize judgment input; JEV necessarily receives the remaining facts required for validation. |
-| Deployment | No resource creation, credential use, commits, pushes or runtime implementation authorized by this document. |
+| Delivery authorization | The subsequent user request authorized implementation, configuration-example updates, commits and a draft English PR. No deployment or private environment edit was requested. |
 
-No unresolved product or design questions remain. Credentials and real-provider
-access are execution prerequisites; model evaluation and configuration approval
-are delivery gates, not assumed completed work. Ready does not authorize code.
+No unresolved product or design questions remain. Code and deterministic
+verification are delivered; real-provider evaluation remains pending because an
+own key is not configured. Keep In progress until the semantic/latency gate passes;
+the draft PR must not claim the model has been evaluated.
 
 ## Completion criteria
 

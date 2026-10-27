@@ -1,0 +1,417 @@
+[
+  {
+    "id": "command-true-1",
+    "split": "development",
+    "stage": "command",
+    "expected": true,
+    "statements": [
+      "Comprei uma camisa na Zara por 120 reais."
+    ],
+    "candidate": "{\"action\": \"add\", \"fields\": {\"amount\": 120, \"description\": \"Camisa na Zara\"}}",
+    "evidence": []
+  },
+  {
+    "id": "command-true-2",
+    "split": "held_out",
+    "stage": "command",
+    "expected": true,
+    "statements": [
+      "Recebi salário de 5000 reais."
+    ],
+    "candidate": "{\"action\": \"add\", \"fields\": {\"amount\": 5000, \"transaction_type\": \"INCOME\"}}",
+    "evidence": []
+  },
+  {
+    "id": "command-true-3",
+    "split": "development",
+    "stage": "command",
+    "expected": true,
+    "statements": [
+      "Cancele o lançamento do almoço de hoje."
+    ],
+    "candidate": "{\"action\": \"cancel\", \"fields\": {\"query\": {\"match_text\": \"almoço\", \"date_local\": \"2026-10-27\"}, \"is_canceled\": true}}",
+    "evidence": []
+  },
+  {
+    "id": "command-true-4",
+    "split": "held_out",
+    "stage": "command",
+    "expected": true,
+    "statements": [
+      "Restaure o lançamento cancelado do ônibus de hoje."
+    ],
+    "candidate": "{\"action\": \"restore\", \"fields\": {\"query\": {\"match_text\": \"ônibus\", \"date_local\": \"2026-10-27\"}, \"is_canceled\": false}}",
+    "evidence": []
+  },
+  {
+    "id": "command-true-5",
+    "split": "development",
+    "stage": "command",
+    "expected": true,
+    "statements": [
+      "Atualize o almoço de hoje para 30 reais."
+    ],
+    "candidate": "{\"action\": \"update\", \"fields\": {\"query\": {\"match_text\": \"almoço\", \"date_local\": \"2026-10-27\"}, \"amount\": 30}}",
+    "evidence": []
+  },
+  {
+    "id": "command-true-6",
+    "split": "held_out",
+    "stage": "command",
+    "expected": true,
+    "statements": [
+      "Corrija a descrição da compra de hoje na Zara para camisa."
+    ],
+    "candidate": "{\"action\": \"update\", \"fields\": {\"query\": {\"match_text\": \"Zara\", \"date_local\": \"2026-10-27\"}, \"description\": \"camisa\"}}",
+    "evidence": []
+  },
+  {
+    "id": "command-false-1",
+    "split": "development",
+    "stage": "command",
+    "expected": false,
+    "statements": [
+      "Comprei uma camisa na Zara."
+    ],
+    "candidate": "{\"action\": \"add\", \"fields\": {\"amount\": 120}}",
+    "evidence": []
+  },
+  {
+    "id": "command-false-2",
+    "split": "held_out",
+    "stage": "command",
+    "expected": false,
+    "statements": [
+      "Comprei uma camisa por 30 dólares."
+    ],
+    "candidate": "{\"action\": \"add\", \"fields\": {\"amount\": 30, \"currency\": \"BRL\"}}",
+    "evidence": []
+  },
+  {
+    "id": "command-false-3",
+    "split": "development",
+    "stage": "command",
+    "expected": false,
+    "statements": [
+      "Quanto gastei no almoço?"
+    ],
+    "candidate": "{\"action\": \"add\", \"fields\": {\"amount\": 50}}",
+    "evidence": []
+  },
+  {
+    "id": "command-false-4",
+    "split": "held_out",
+    "stage": "command",
+    "expected": false,
+    "statements": [
+      "Atualize o almoço para 40 reais."
+    ],
+    "candidate": "{\"action\": \"update\", \"fields\": {\"amount\": 400}}",
+    "evidence": []
+  },
+  {
+    "id": "command-false-5",
+    "split": "development",
+    "stage": "command",
+    "expected": false,
+    "statements": [
+      "Mostre meu almoço de hoje."
+    ],
+    "candidate": "{\"action\": \"cancel\", \"fields\": {\"is_canceled\": true}}",
+    "evidence": []
+  },
+  {
+    "id": "command-false-6",
+    "split": "held_out",
+    "stage": "command",
+    "expected": false,
+    "statements": [
+      "Cancele a compra da Zara de hoje."
+    ],
+    "candidate": "{\"action\": \"restore\", \"fields\": {\"is_canceled\": false}}",
+    "evidence": []
+  },
+  {
+    "id": "reply-true-1",
+    "split": "development",
+    "stage": "reply",
+    "expected": true,
+    "statements": [
+      "Quanto gastei na Zara?"
+    ],
+    "candidate": "Você gastou R$ 120 na Zara.",
+    "evidence": [
+      {
+        "tool": "search_transactions",
+        "arguments": {},
+        "result": {
+          "status": "ok",
+          "data": {
+            "transactions": [
+              {
+                "amount": 120,
+                "source_text": "120 reais na Zara"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "reply-true-2",
+    "split": "held_out",
+    "stage": "reply",
+    "expected": true,
+    "statements": [
+      "Quanto gastei com Ferrari em 2019?"
+    ],
+    "candidate": "Não encontrei lançamentos de Ferrari em 2019.",
+    "evidence": [
+      {
+        "tool": "search_transactions",
+        "arguments": {
+          "description": "Ferrari",
+          "year": 2019
+        },
+        "result": {
+          "status": "ok",
+          "data": {
+            "transactions": []
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "reply-true-3",
+    "split": "development",
+    "stage": "reply",
+    "expected": true,
+    "statements": [
+      "Qual o telefone do suporte?"
+    ],
+    "candidate": "O telefone do suporte é (11) 4000-1234.",
+    "evidence": [
+      {
+        "tool": "faq_rag",
+        "arguments": {},
+        "result": {
+          "status": "ok",
+          "data": {
+            "response": [
+              "Suporte: (11) 4000-1234."
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "reply-true-4",
+    "split": "held_out",
+    "stage": "reply",
+    "expected": true,
+    "statements": [
+      "A Zara é a melhor loja?"
+    ],
+    "candidate": "Você descreveu a Zara como a melhor loja.",
+    "evidence": [
+      {
+        "tool": "search_history",
+        "arguments": {},
+        "result": {
+          "status": "ok",
+          "data": {
+            "history": "O usuário disse que a Zara é a melhor loja."
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "reply-true-5",
+    "split": "development",
+    "stage": "reply",
+    "expected": true,
+    "statements": [
+      "Quanto foi no total?"
+    ],
+    "candidate": "Foram R$ 30 no total.",
+    "evidence": [
+      {
+        "tool": "search_transactions",
+        "arguments": {},
+        "result": {
+          "status": "ok",
+          "data": {
+            "transactions": [
+              {
+                "amount": 10,
+                "source_text": "10 reais"
+              },
+              {
+                "amount": 20,
+                "source_text": "20 reais"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "reply-true-6",
+    "split": "held_out",
+    "stage": "reply",
+    "expected": true,
+    "statements": [
+      "Que horas é minha reunião?"
+    ],
+    "candidate": "A reunião começa às 9h no horário de Brasília.",
+    "evidence": [
+      {
+        "tool": "query_events",
+        "arguments": {},
+        "result": {
+          "status": "ok",
+          "data": {
+            "events": [
+              {
+                "start": "2026-10-27T12:00:00Z"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "reply-false-1",
+    "split": "development",
+    "stage": "reply",
+    "expected": false,
+    "statements": [
+      "Quanto gastei na Zara?"
+    ],
+    "candidate": "Você gastou R$ 120 na Zara, a melhor loja do mundo.",
+    "evidence": [
+      {
+        "tool": "search_transactions",
+        "arguments": {},
+        "result": {
+          "status": "ok",
+          "data": {
+            "transactions": [
+              {
+                "amount": 120,
+                "source_text": "120 reais na Zara"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "reply-false-2",
+    "split": "held_out",
+    "stage": "reply",
+    "expected": false,
+    "statements": [
+      "Quanto gastei com Ferrari em 2019?"
+    ],
+    "candidate": "Você gastou R$ 4500 com Ferrari em 2019.",
+    "evidence": [
+      {
+        "tool": "search_transactions",
+        "arguments": {},
+        "result": {
+          "status": "ok",
+          "data": {
+            "transactions": []
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "reply-false-3",
+    "split": "development",
+    "stage": "reply",
+    "expected": false,
+    "statements": [
+      "Qual a cotação do dólar agora?"
+    ],
+    "candidate": "O dólar está a R$ 5,20.",
+    "evidence": []
+  },
+  {
+    "id": "reply-false-4",
+    "split": "held_out",
+    "stage": "reply",
+    "expected": false,
+    "statements": [
+      "Que horas é minha reunião com o presidente amanhã?"
+    ],
+    "candidate": "Sua reunião é às 10h.",
+    "evidence": [
+      {
+        "tool": "query_events",
+        "arguments": {},
+        "result": {
+          "status": "ok",
+          "data": {
+            "events": []
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "reply-false-5",
+    "split": "development",
+    "stage": "reply",
+    "expected": false,
+    "statements": [
+      "O que eu disse sobre Marte?"
+    ],
+    "candidate": "Você planejou uma viagem para Marte.",
+    "evidence": [
+      {
+        "tool": "search_history",
+        "arguments": {},
+        "result": {
+          "status": "ok",
+          "data": {
+            "history": "Nenhuma conversa anterior relevante foi encontrada."
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "reply-false-6",
+    "split": "held_out",
+    "stage": "reply",
+    "expected": false,
+    "statements": [
+      "O Assessor cria eventos no Google Calendar?"
+    ],
+    "candidate": "Sim, cria eventos no Google Calendar.",
+    "evidence": [
+      {
+        "tool": "faq_rag",
+        "arguments": {},
+        "result": {
+          "status": "ok",
+          "data": {
+            "response": [
+              "Não há criação em calendário externo."
+            ]
+          }
+        }
+      }
+    ]
+  }
+]
